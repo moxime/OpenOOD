@@ -29,6 +29,7 @@ from .resnet18_64x64 import ResNet18_64x64
 from .resnet18_224x224 import ResNet18_224x224
 from .resnet18_256x256 import ResNet18_256x256
 from .resnet50 import ResNet50
+from .vgg19_32x32 import VGG19
 from .udg_net import UDGNet
 from .wrn import WideResNet
 
@@ -223,6 +224,10 @@ def get_network(network_config):
         bn = BN_layer(AttnBasicBlock, 2)
         decoder = De_ResNet18_256x256()
         net = {'encoder': encoder, 'bn': bn, 'decoder': decoder}
+
+    elif network_config.name == 'vgg19_32x32':
+        net = VGG19(num_classes=num_classes)
+        _
     else:
         raise Exception('Unexpected Network Architecture!')
 
