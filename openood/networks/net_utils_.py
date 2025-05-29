@@ -227,7 +227,7 @@ def get_network(network_config):
 
     elif network_config.name == 'vgg19_32x32':
         net = VGG19(num_classes=num_classes)
-        _
+
     else:
         raise Exception('Unexpected Network Architecture!')
 

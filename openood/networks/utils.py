@@ -38,6 +38,7 @@ from .wrn import WideResNet
 from .rts_net import RTSNet
 from .palm_net import PALMNet
 from .ascood_net import ASCOODNet
+from .vgg19_32x32 import VGG19
 
 
 def get_network(network_config):
@@ -46,6 +47,9 @@ def get_network(network_config):
 
     if network_config.name == 'resnet18_32x32':
         net = ResNet18_32x32(num_classes=num_classes)
+
+    elif network_config.name == 'vgg19_32x32':
+        net = VGG19(num_classes=num_classes)
 
     elif network_config.name == 'resnet18_256x256':
         net = ResNet18_256x256(num_classes=num_classes)
