@@ -62,9 +62,6 @@ class VGG19(nn.Module):
             if i + 1 == layer_index:
                 return x
 
-        if return_feature_list:
-            return feature_list
-
         x = self.flatten(x)
 
         z = self.fc1(x)
@@ -73,13 +70,22 @@ class VGG19(nn.Module):
         if threshold is not None:
             z = z.clip(max=threshold)
 
-        if return_feature:
-            return z
+        logits = self.fc(z)
 
-        return self.fc(z)
+        if return_feature_list:
+            return logits, feature_list
+
+        if return_feature:
+            return logits, z
+
+        return logits
 
     def intermediate_forward(self, x, layer_index):
         return self.forward(x, layer_index=layer_index)
+
+    def forward_threshold(self, x, threshold):
+
+        return self.forward(x, threshold=threshold)
 
     def get_fc(self):
         fc = self.fc
