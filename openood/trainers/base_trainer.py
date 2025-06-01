@@ -11,6 +11,16 @@ from openood.utils import Config
 from .lr_scheduler import cosine_annealing
 
 
+class FakeScheduler():
+
+    def __init__(self, opt, l, epoch):
+
+        pass
+
+    def step(self):
+        pass
+
+
 class BaseTrainer:
     def __init__(self, net: nn.Module, train_loader: DataLoader,
                  config: Config) -> None:
@@ -36,6 +46,8 @@ class BaseTrainer:
                 1e-6 / config.optimizer.lr,
             ),
         )
+
+        self.scheduler = FakeScheduler()
 
     def train_epoch(self, epoch_idx):
         self.net.train()
