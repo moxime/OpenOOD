@@ -28,7 +28,8 @@ evaluator:
 optimizer:
   name: sgd
   num_epochs: 100
-  lr: 0.1
+  lr: 0.01
+  gamma: 0.95
   momentum: 0.9
   weight_decay: 0.0005
 

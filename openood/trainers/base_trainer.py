@@ -13,7 +13,7 @@ from .lr_scheduler import cosine_annealing
 
 class FakeScheduler():
 
-    def __init__(self, opt, l, epoch):
+    def __init__(self, opt=None, l=None, epoch=None):
 
         pass
 
@@ -37,17 +37,19 @@ class BaseTrainer:
             nesterov=True,
         )
 
-        self.scheduler = torch.optim.lr_scheduler.LambdaLR(
-            self.optimizer,
-            lr_lambda=lambda step: cosine_annealing(
-                step,
-                config.optimizer.num_epochs * len(train_loader),
-                1,
-                1e-6 / config.optimizer.lr,
-            ),
-        )
+        # self.scheduler = torch.optim.lr_scheduler.LambdaLR(
+        #     self.optimizer,
+        #     lr_lambda=lambda step: cosine_annealing(
+        #         step,
+        #         config.optimizer.num_epochs * len(train_loader),
+        #         1,
+        #         1e-6 / config.optimizer.lr,
+        #     ),
+        # )
 
-        self.scheduler = FakeScheduler()
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
+                                                         step_size=len(train_loader),
+                                                         gamma=config.optimizer.gamma)
 
     def train_epoch(self, epoch_idx):
         self.net.train()
