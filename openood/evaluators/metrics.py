@@ -39,13 +39,13 @@ def fpr_recall(conf, label, tpr):
 # auc
 def auc_and_fpr_recall(conf, label, tpr_th):
     # following convention in ML we treat OOD as positive
-    ood_indicator = np.zeros_like(label)
-    ood_indicator[label == -1] = 1
+    ood_indicator = np.ones_like(label)
+    ood_indicator[label == -1] = 0
 
     # in the postprocessor we assume ID samples will have larger
     # "conf" values than OOD samples
     # therefore here we need to negate the "conf" values
-    fpr_list, tpr_list, thresholds = metrics.roc_curve(ood_indicator, -conf)
+    fpr_list, tpr_list, thresholds = metrics.roc_curve(ood_indicator, conf)
     fpr = fpr_list[np.argmax(tpr_list >= tpr_th)]
 
     precision_in, recall_in, thresholds_in \
