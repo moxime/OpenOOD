@@ -55,7 +55,8 @@ if __name__ == '__main__':
     df.columns.rename(['set', 'measures'], inplace='True')
     df.rename(columns=str.lower, inplace=True)
     df.rename(columns={'auroc': 'auc'}, inplace=True)
-    df.rename(columns={'mnist': 'mnist32r'}, inplace=True)
+    df.rename(columns={'mnist': 'mnist32r', 'cifar100': 'o_cifar100',
+              'places365': 'o_places365', 'tin': 'o_tin'}, inplace=True)
     print(df)
 
     df.to_csv('/tmp/openood.csv')
