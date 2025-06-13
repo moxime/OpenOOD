@@ -39,8 +39,8 @@ class PriorMean(nn.Module):
     def get_fc(self):
 
         fc = nn.Linear(self.mean.shape[1], self.mean.shape[0])
-        fc.weight = nn.Parameter(-self.mean)
-        fc.bias = nn.Parameter(0.5 * self.mean.norm(dim=1).pow(2))
+        fc.weight = nn.Parameter(self.mean)
+        fc.bias = nn.Parameter(-0.5 * self.mean.norm(dim=1).pow(2))
 
         return fc
 
