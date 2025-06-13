@@ -44,18 +44,22 @@ class PriorMean(nn.Module):
 
         return fc
 
-    def forward(self, z, debug=False):
+    def forward(self, z, debug=False, by_dist=False):
         """
         mu (mean) of shape CxK
         z of shape NxK
         outputs logit of shape NxC
-        with logit[i, k] = 0.5 ||z[i,:]||² + 0.5 ||mu[k, :]||² - <z[i,:], mu[k,:]>
+        with logit[i, k] = -0.5 ||z[i,:]||² - 0.5 ||mu[k, :]||² + <z[i,:], mu[k,:]>
         """
+
+        if by_dist:
+            return self.compute_dist(z)
+
         z_norm = 0.5 * z.norm(dim=1).pow(2).unsqueeze(1)
         bias = 0.5 * self.mean.norm(dim=1).pow(2).unsqueeze(0)
 
         val_ = torch.matmul(z, self.mean.T)
-        out = val_ - z_norm - bias
+        out = val_ - bias - z_norm
 
         if debug:
             def isinf(t):
@@ -66,6 +70,33 @@ class PriorMean(nn.Module):
                   '| val_', isinf(val_), '| out', isinf(out))
 
         return out
+
+    def compute_dist(self, z):
+        C = self.mean.shape[0]
+        K = self.mean.shape[1]
+        N = z.shape[0]
+        dist = torch.zeros(N, C)
+
+        for i in range(N):
+            for k in range(C):
+                d = z[i] - self.mean[k]
+                dist[i, k] = d.pow(2).sum()
+
+        return -0.5 * dist
+
+    def __test__(self, N=3):
+
+        K = self.mean.shape[1]
+
+        self.mean = nn.Parameter(self.mean / self.mean.std() / K)
+
+        out = self(z, debug=True)
+
+        out_ = self.compute_dist(z)
+
+        print((out - out_).norm() / out.norm())
+
+        return out, out_
 
 
 class VGG19CVAE(nn.Module):
@@ -112,7 +143,7 @@ class VGG19CVAE(nn.Module):
         category = 'features'
         for self_k, other_k in zip(self_keys[category], other_state_dict_dict[category]):
             key_map[self_k] = other_k
-
+            # print(other_k, '->', self_k)
         for category in ('encoder',):
 
             for k in self_keys[category]:
