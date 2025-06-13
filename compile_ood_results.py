@@ -11,7 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--result-dir', default='./results')
-    parser.add_argument('--network', default='cifar10_vgg19_32x32')
+    parser.add_argument('--network', default='cifar10_ood_vgg19_32x32')
     parser.add_argument('--seed', default=0)
 
     args = parser.parse_args()
@@ -30,11 +30,14 @@ if __name__ == '__main__':
 
     for _ in subdirs:
         s = r.search(_)
+        print('r', regex_str)
+        print('d', _)
         if not s:
             continue
         method = s.group(1)
         csv_file = os.path.join(result_dir, _, 's{}'.format(seed), 'ood', 'ood.csv')
         if not os.path.exists(csv_file):
+            print(csv_file, 'does not exist')
             continue
 
         df = pd.read_csv(csv_file)
