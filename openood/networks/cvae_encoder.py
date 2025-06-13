@@ -55,7 +55,7 @@ class PriorMean(nn.Module):
         bias = 0.5 * self.mean.norm(dim=1).pow(2).unsqueeze(0)
 
         val_ = torch.matmul(z, self.mean.T)
-        out = - val_ + z_norm + bias
+        out = val_ - z_norm - bias
 
         if debug:
             def isinf(t):
