@@ -28,7 +28,7 @@ class VGGBlock(nn.Module):
         return self.pool(x)
 
 
-class VGG19(nn.Module):
+class VGG19CVAE(nn.Module):
 
     def __init__(self, num_classes=10, input_shape=(32, 32),
                  encoder=[],
@@ -97,10 +97,10 @@ class VGG19(nn.Module):
 
         return {k: other_state_dict[key_map[k]] for k in key_map}
 
-    def load_state_dict(self, state_dict):
+    def load_state_dict(self, state_dict, **kw):
 
         new_state = self._transfer_state_dict(state_dict)
-        return super().load_state_dict(new_state)
+        return super().load_state_dict(new_state, **kw)
 
     def forward(self, x, layer_index=None,
                 return_feature_list=False, return_feature=False,
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
     import torch
     import numpy as np
-    m = VGG19(latent_dim=1024)
+    m = VGG19CVAE(latent_dim=1024)
     state_dict = torch.load('state.pth', map_location='cpu')
 
     state = m.state_dict()
