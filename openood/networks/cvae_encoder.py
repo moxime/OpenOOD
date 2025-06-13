@@ -126,9 +126,11 @@ class VGG19CVAE(nn.Module):
 
         self.encoder['prior'] = PriorMean()
 
+        self.classifier = nn.Sequential(nn.Linear(latent_dim, num_classes))
+
     def _transfer_state_dict(self, other_state_dict):
 
-        categories = ('encoder', 'features')
+        categories = ('encoder', 'features', 'classifier')
 
         other_state_dict_dict = {k: {_: other_state_dict[_] for _ in other_state_dict if _.startswith(k + '.')}
                                  for k in categories}
@@ -140,15 +142,16 @@ class VGG19CVAE(nn.Module):
         # dict of {self_key: other_key}
         key_map = {}
 
-        category = 'features'
-        for self_k, other_k in zip(self_keys[category], other_state_dict_dict[category]):
-            key_map[self_k] = other_k
-            # print(other_k, '->', self_k)
-        for category in ('encoder',):
+        for category in categories:
 
             for k in self_keys[category]:
                 if k in other_state_dict:
                     key_map[k] = k
+
+        category = 'features'
+        for self_k, other_k in zip(self_keys[category], other_state_dict_dict[category]):
+            key_map[self_k] = other_k
+            # print(other_k, '->', self_k)
 
         for self_k, other_k in key_map.items():
             other_shape = other_state_dict[other_k].shape
@@ -197,7 +200,8 @@ class VGG19CVAE(nn.Module):
         if threshold is not None:
             z = z.clip(max=threshold)
 
-        logits = self.encoder.prior(z)
+        # logits = self.encoder.prior(z)
+        logits = self.classifier(z)
 
         if return_feature_list:
             return logits, feature_list
@@ -231,6 +235,8 @@ if __name__ == '__main__':
 
     state = m.state_dict()
     k = list(state)[0]
+    k = 'classifier.0.weight'
+
     param = state[k].clone()
 
     m.load_state_dict(state_dict)
