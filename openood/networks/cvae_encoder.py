@@ -28,6 +28,45 @@ class VGGBlock(nn.Module):
         return self.pool(x)
 
 
+class PriorMean(nn.Module):
+
+    def __init__(self, num_classes=10, latent_space=1024):
+
+        super().__init__()
+        self.mean = nn.Parameter(torch.Tensor(num_classes, latent_space))
+
+    def get_fc(self):
+
+        fc = nn.Linear(self.mean.shape[1], self.mean.shape[0])
+        fc.weight = nn.Parameter(-self.mean)
+        fc.bias = nn.Parameter(0.5 * self.mean.norm(dim=1).pow(2))
+
+        return fc
+
+    def forward(self, z, debug=False):
+        """
+        mu (mean) of shape CxK
+        z of shape NxK
+        outputs logit of shape NxC
+        with logit[i, k] = 0.5 ||z[i,:]||² + 0.5 ||mu[k, :]||² - <z[i,:], mu[k,:]>
+        """
+        z_norm = 0.5 * z.norm(dim=1).pow(2).unsqueeze(1)
+        bias = 0.5 * self.mean.norm(dim=1).pow(2).unsqueeze(0)
+
+        val_ = torch.matmul(z, self.mean.T)
+        out = - val_ + z_norm + bias
+
+        if debug:
+            def isinf(t):
+                return 'inf' if t.isinf().any() else 'ok'
+            print('z', *z.shape, '| z_norm', *z_norm.shape, '| b', *bias.shape,
+                  '| val_', *val_.shape, '| out', *out.shape)
+            print('z', isinf(z), '| z_norm', isinf(z_norm), '| b', isinf(bias),
+                  '| val_', isinf(val_), '| out', isinf(out))
+
+        return out
+
+
 class VGG19CVAE(nn.Module):
 
     def __init__(self, num_classes=10, input_shape=(32, 32),
@@ -53,12 +92,11 @@ class VGG19CVAE(nn.Module):
 
         self.encoder['dense_mean'] = nn.Linear(out_shape, latent_dim)
 
-        self.latent_activation = nn.ReLU(inplace=True) if relu_after_latent else nn.Identity(inplace=True)
-        self.classifier = nn.ModuleList([nn.Linear(latent_dim, num_classes)])
+        self.encoder['prior'] = PriorMean()
 
     def _transfer_state_dict(self, other_state_dict):
 
-        categories = ('encoder', 'features', 'classifier')
+        categories = ('encoder', 'features')
 
         other_state_dict_dict = {k: {_: other_state_dict[_] for _ in other_state_dict if _.startswith(k + '.')}
                                  for k in categories}
@@ -74,7 +112,7 @@ class VGG19CVAE(nn.Module):
         for self_k, other_k in zip(self_keys[category], other_state_dict_dict[category]):
             key_map[self_k] = other_k
 
-        for category in ('encoder', 'classifier'):
+        for category in ('encoder',):
 
             for k in self_keys[category]:
                 if k in other_state_dict:
@@ -95,6 +133,7 @@ class VGG19CVAE(nn.Module):
         unused_keys = {k: {_ for _ in other_state_dict_dict[k] if _
                            not in key_map.values()} for k in self_keys}
 
+        print(unused_keys)
         return {k: other_state_dict[key_map[k]] for k in key_map}
 
     def load_state_dict(self, state_dict, **kw):
@@ -122,14 +161,11 @@ class VGG19CVAE(nn.Module):
 
         z = self.encoder['dense_projs'](x)
         z = self.encoder['dense_mean'](z)
-        z = self.latent_activation(z)
 
         if threshold is not None:
             z = z.clip(max=threshold)
 
-        for l in self.classifier:
-            z = l(z)
-        logits = z
+        logits = self.encoder.prior(z)
 
         if return_feature_list:
             return logits, feature_list
@@ -147,11 +183,11 @@ class VGG19CVAE(nn.Module):
         return self.forward(x, threshold=threshold)
 
     def get_fc(self):
-        fc = self.fc
+        fc = self.encoder.prior.get_fc()
         return fc.weight.cpu().detach().numpy(), fc.bias.cpu().detach().numpy()
 
     def get_fc_layer(self):
-        return self.fc
+        return self.encoder.prior.get_fc()
 
 
 if __name__ == '__main__':
@@ -170,3 +206,9 @@ if __name__ == '__main__':
     new_param = m.state_dict()[k].clone()
 
     print((param - new_param).norm())
+
+    x = torch.randn(100, 3, 32, 32)
+
+    logits = m(x)
+
+    print(logits.shape)
