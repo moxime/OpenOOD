@@ -62,4 +62,4 @@ if __name__ == '__main__':
               'places365': 'o_places365', 'tin': 'o_tin'}, inplace=True)
     print(df)
 
-    df.to_csv('/tmp/openood.csv')
+    df.to_csv('/tmp/openood_{}.csv'.format(network))
