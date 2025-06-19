@@ -103,7 +103,7 @@ class VGG19CVAE(nn.Module):
 
     def __init__(self, num_classes=10, input_shape=(32, 32),
                  encoder=[],
-                 latent_dim=1024, relu_after_latent=False):
+                 latent_dim=1024, relu_after_latent=False, gamma=1):
 
         super().__init__()
 

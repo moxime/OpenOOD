@@ -55,7 +55,9 @@ def get_network(network_config):
 
     # own model
     elif network_config.name == 'cvae_encoder':
-        net = VGG19CVAE(num_classes=num_classes)
+        gamma = network_config.gamma
+
+        net = VGG19CVAE(num_classes=num_classes, gamma=network_config.gamma)
 
     elif network_config.name == 'resnet18_256x256':
         net = ResNet18_256x256(num_classes=num_classes)
