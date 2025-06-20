@@ -107,6 +107,8 @@ class VGG19CVAE(nn.Module):
 
         super().__init__()
 
+        self._gamma = gamma
+
         block_params = [(2, 3, 64), (2, 64, 128), (4, 128, 256), (4, 256, 512), (4, 512, 512)]
         self.features = nn.ModuleList([VGGBlock(n, i, o) for n, i, o in block_params])
         self.features.append(nn.AvgPool2d(1))
@@ -131,6 +133,10 @@ class VGG19CVAE(nn.Module):
     def _transfer_state_dict(self, other_state_dict):
 
         categories = ('encoder', 'features', 'classifier')
+
+        mean = other_state_dict['encoder.prior.mean']
+        mean /= mean.std()
+        mean /= self._gamma
 
         other_state_dict_dict = {k: {_: other_state_dict[_] for _ in other_state_dict if _.startswith(k + '.')}
                                  for k in categories}
@@ -195,13 +201,13 @@ class VGG19CVAE(nn.Module):
         x = self.flatten(x)
 
         z = self.encoder['dense_projs'](x)
-        z = self.encoder['dense_mean'](z)
+        z = self.encoder['dense_mean'](z) / self._gamma
 
         if threshold is not None:
             z = z.clip(max=threshold)
 
-        # logits = self.encoder.prior(z)
-        logits = self.classifier(z)
+        logits = self.encoder.prior(z)
+        # logits = self.classifier(z)
 
         if return_feature_list:
             return logits, feature_list
@@ -230,7 +236,7 @@ if __name__ == '__main__':
 
     import torch
     import numpy as np
-    m = VGG19CVAE(latent_dim=1024)
+    m = VGG19CVAE(latent_dim=1024, gamma=1e3)
     state_dict = torch.load('state.pth', map_location='cpu')
 
     state = m.state_dict()
