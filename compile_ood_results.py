@@ -64,11 +64,13 @@ if __name__ == '__main__':
             config = yaml.load(f, Loader=ConfigLoader)['state']
 
         df['gamma'] = config['network'].get('gamma')
+        df['job_number'] = config['network'].get('job_number')
+
         df['arch'] = config['network'].get('name')
         df['method'] = config['postprocessor']['name']
 
         # print(os.path.split(csv_file)[0], config['postprocessor']['name'], config['network'].get('gamma'))
-        df.set_index(['arch', 'gamma', 'method', 'dataset'], inplace=True)
+        df.set_index(['arch', 'job_number',  'gamma', 'method', 'dataset'], inplace=True)
         acc_df = df['ACC']
         df = df[['FPR@95', 'AUROC']].unstack()
         df[('ACC', ind_set)] = acc_df.iloc[0]
@@ -92,7 +94,8 @@ if __name__ == '__main__':
 
     printed_cols = c.isin(kept_datasets, level='set')
 
-    print(df[c[printed_cols]].reset_index().set_index(['arch', 'method', 'gamma']).sort_index().to_string())
+    print(df[c[printed_cols]].reset_index().set_index(
+        ['arch', 'job_number', 'method', 'gamma']).sort_index().to_string())
 
     """
     for _ in subdirs:
@@ -129,4 +132,4 @@ if __name__ == '__main__':
               'places365': 'o_places365', 'tin': 'o_tin'}, inplace=True)
     print(df)
     """
-    # df.to_csv('/tmp/openood_{}.csv'.format(network))
+    df.to_csv('/tmp/openood_{}.csv'.format(network))
