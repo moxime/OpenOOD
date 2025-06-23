@@ -21,8 +21,8 @@ def find_csv_and_config(root, pattern, *file_names, is_in=False):
         elif is_in and node.is_file() and node.name in file_names:
             files_in_dir[node.name] = node.path
 
-        if all(files_in_dir.values()):
-            yield files_in_dir
+    if all(files_in_dir.values()):
+        yield files_in_dir
 
 
 class ConfigLoader(yaml.SafeLoader):
@@ -66,8 +66,8 @@ if __name__ == '__main__':
         df['gamma'] = config['network'].get('gamma')
         df['arch'] = config['network'].get('name')
         df['method'] = config['postprocessor']['name']
-        print(os.path.split(csv_file)[0], config['postprocessor']['name'], config['network'].get('gamma'))
 
+        # print(os.path.split(csv_file)[0], config['postprocessor']['name'], config['network'].get('gamma'))
         df.set_index(['arch', 'gamma', 'method', 'dataset'], inplace=True)
         acc_df = df['ACC']
         df = df[['FPR@95', 'AUROC']].unstack()
@@ -87,8 +87,8 @@ if __name__ == '__main__':
     c = df.columns
 
     kept_datasets = ['mnist32r']
-    kept_datasets = ['farood', 'nearood']
-    kept_datasets = ['mnist32r', 'svhn']
+    kept_datasets = ['mnist32r', 'svhn', ind_set]
+    kept_datasets = ['farood', 'nearood', ind_set]
 
     printed_cols = c.isin(kept_datasets, level='set')
 

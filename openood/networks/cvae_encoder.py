@@ -107,7 +107,9 @@ class VGG19CVAE(nn.Module):
 
         super().__init__()
 
-        self._gamma = gamma
+        self._gamma = gamma or None
+
+        self._downscale = 1
 
         block_params = [(2, 3, 64), (2, 64, 128), (4, 128, 256), (4, 256, 512), (4, 512, 512)]
         self.features = nn.ModuleList([VGGBlock(n, i, o) for n, i, o in block_params])
@@ -135,8 +137,9 @@ class VGG19CVAE(nn.Module):
         categories = ('encoder', 'features', 'classifier')
 
         mean = other_state_dict['encoder.prior.mean']
-        mean /= mean.std()
-        mean /= self._gamma
+        if self._gamma:
+            self._downscale = mean.std() * self._gamma
+        mean /= self._downscale
 
         other_state_dict_dict = {k: {_: other_state_dict[_] for _ in other_state_dict if _.startswith(k + '.')}
                                  for k in categories}
@@ -201,7 +204,7 @@ class VGG19CVAE(nn.Module):
         x = self.flatten(x)
 
         z = self.encoder['dense_projs'](x)
-        z = self.encoder['dense_mean'](z) / self._gamma
+        z = self.encoder['dense_mean'](z) / self._downscale
 
         if threshold is not None:
             z = z.clip(max=threshold)
