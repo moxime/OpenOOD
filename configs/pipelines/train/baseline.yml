@@ -27,7 +27,7 @@ evaluator:
 
 optimizer:
   name: sgd
-  num_epochs: 100
+  num_epochs: 200
   lr: 0.01
   gamma: 0.95
   momentum: 0.9

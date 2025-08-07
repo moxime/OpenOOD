@@ -63,14 +63,13 @@ if __name__ == '__main__':
         with open(conf_file) as f:
             config = yaml.load(f, Loader=ConfigLoader)['state']
 
-        df['gamma'] = config['network'].get('gamma')
-        df['job_number'] = config['network'].get('job_number')
+        df['gamma_z'] = config['network'].get('gamma')
+        df['network_number'] = config['network'].get('job_number')
 
-        df['arch'] = config['network'].get('name')
+        df['network_arch'] = config['network'].get('name')
         df['method'] = config['postprocessor']['name']
 
-        # print(os.path.split(csv_file)[0], config['postprocessor']['name'], config['network'].get('gamma'))
-        df.set_index(['arch', 'job_number',  'gamma', 'method', 'dataset'], inplace=True)
+        df.set_index(['network_arch', 'network_number',  'gamma_z', 'method', 'dataset'], inplace=True)
         acc_df = df['ACC']
         df = df[['FPR@95', 'AUROC']].unstack()
         df[('ACC', ind_set)] = acc_df.iloc[0]
@@ -89,47 +88,12 @@ if __name__ == '__main__':
     c = df.columns
 
     kept_datasets = ['mnist32r']
-    kept_datasets = ['mnist32r', 'svhn', ind_set]
     kept_datasets = ['farood', 'nearood', ind_set]
+    kept_datasets = ['mnist32r', 'svhn', ind_set]
 
     printed_cols = c.isin(kept_datasets, level='set')
 
     print(df[c[printed_cols]].reset_index().set_index(
-        ['arch', 'job_number', 'method', 'gamma']).sort_index().to_string())
+        ['network_arch', 'network_number', 'method', 'gamma_z']).sort_index().to_string())
 
-    """
-    for _ in subdirs:
-        s = r.search(_)
-        print('r', regex_str)
-        print('d', _)
-        if not s:
-            continue
-        method = s.group(1)
-        csv_file = os.path.join(result_dir, _, 's{}'.format(seed), 'ood', 'ood.csv')
-        if not os.path.exists(csv_file):
-            print(csv_file, 'does not exist')
-            continue
-
-        df = pd.read_csv(csv_file)
-        df.set_index(['dataset'], inplace=True)
-
-        acc_df = df['ACC']
-        df = df[['FPR@95', 'AUROC']].unstack()
-
-        df[('ACC', ind_set)] = acc_df.iloc[0]
-
-        df_[method] = df
-
-    df = pd.concat(df_, axis='columns').T
-    df['arch'] = '-'.join(network.split('_')[1:])
-    df.index.rename('method', inplace=True)
-    df = df.reset_index().set_index(['arch', 'method'])
-    df = df.swaplevel(0, 1, axis='columns')
-    df.columns.rename(['set', 'measures'], inplace='True')
-    df.rename(columns=str.lower, inplace=True)
-    df.rename(columns={'auroc': 'auc'}, inplace=True)
-    df.rename(columns={'mnist': 'mnist32r', 'cifar100': 'o_cifar100',
-              'places365': 'o_places365', 'tin': 'o_tin'}, inplace=True)
-    print(df)
-    """
     df.to_csv('/tmp/openood_{}.csv'.format(network))
