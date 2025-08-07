@@ -1,0 +1,8 @@
+network:
+  name: vgg19_32x32
+  gamma: 1.
+  job_number: 0
+  num_classes: '@{dataset.num_classes}'
+  pretrained: False          # set 'True' to load pretrained model
+  checkpoint: ./results/cifar10_vgg19_32x32_base_e100_lr0.01_default/s0/last.ckpt  # ignore if pretrained is false
+  num_gpus: '@{num_gpus}'
