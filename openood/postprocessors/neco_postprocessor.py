@@ -58,10 +58,21 @@ class NeCOPostprocessor(BasePostprocessor):
         _, pred = torch.max(logit, dim=1)
 
         complete_vectors = self.ss.transform(feature)
-        cls_test_reduced_all = self.pca.transform(complete_vectors)
+        cls_reduced_all = self.pca.transform(complete_vectors)
 
-        score_ood = -vlogit_ood + energy_ood
-        return pred, torch.from_numpy(score_ood)
+        cls_reduced = cls_reduced_all[:, :self.dim]
+
+        score = []
+
+        for i in range(cls_reduced.shape[0]):
+            sc_complet = norm((complete_vectors[i, :]))
+            sc = norm(cls_reduced[i, :])
+            sc_final = sc/sc_complet
+            score.append(sc_final)
+
+        score = np.array(score)
+
+        return pred, torch.from_numpy(score)
 
     def set_hyperparam(self, hyperparam: list):
         self.dim = hyperparam[0]
