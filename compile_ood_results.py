@@ -59,6 +59,7 @@ if __name__ == '__main__':
     for conf_files in find_csv_and_config(result_dir, pattern, 'ood.csv', 'config.yml'):
         csv_file = conf_files['ood.csv']
         conf_file = conf_files['config.yml']
+        print(conf_file)
         df = pd.read_csv(csv_file)
         with open(conf_file) as f:
             config = yaml.load(f, Loader=ConfigLoader)['state']
