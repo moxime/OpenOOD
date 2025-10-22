@@ -5,9 +5,10 @@ _test_*
 # ignore data and output directory
 data
 data/
-results/
+results*/
 checkpoints/
 ipynb_checkpoints/
+*.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
