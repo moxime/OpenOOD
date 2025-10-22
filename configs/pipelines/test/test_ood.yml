@@ -1,4 +1,4 @@
-exp_name: "'@{dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'_'@{postprocessor.name}'_'@{mark}'/s'@{seed}'/'@{evaluator.ood_scheme}'"
+exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{network.job_number}'_'@{network.gamma}'_'@{pipeline.name}'_'@{evaluator.name}'_'@{mark}'/'@{postprocessor.name}'/s'@{seed}'/'@{evaluator.ood_scheme}'"
 output_dir: ./results/
 save_output: True
 merge_option: default # disabled if 'save_output' is False
