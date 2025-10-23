@@ -48,4 +48,5 @@ class TTAPostprocessor(BasePostprocessor):
         self.dim, self.bogus = hyperparam
 
     def get_hyperparam(self):
+        print('get hyperparam')
         return [self.dim, self.bogus]
