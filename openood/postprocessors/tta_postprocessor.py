@@ -15,15 +15,16 @@ from .info import num_classes_dict
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
-        self.num_classes = num_classes_dict[self.config.dataset.name]
-        self.args = self.config.postprocessor.postprocessor_args
-        self.args_dict = self.config.postprocessor.postprocessor_sweep
-        # self.alpha = self.args.alpha
         self.setup_flag = False
+        print('*** INIT ***')
+        print(config)
+        print('*** END OF INIT ***')
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return
+
+        self.setup_flag = True
 
     def process_batch(self, net, data):
         pass
