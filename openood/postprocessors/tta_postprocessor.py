@@ -42,3 +42,9 @@ class TTAPostprocessor(BasePostprocessor):
         # scores = -pairwise_distances_argmin_min(
         #     softmax, np.array(self.mean_softmax_val), metric=self.kl)[1]
         # return preds, torch.from_numpy(scores)
+
+    def set_hyperparam(self, hyperparam: list):
+        print('set hyperparam', *hyperparam)
+
+    def get_hyperparam(self):
+        return 0
