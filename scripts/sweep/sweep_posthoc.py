@@ -116,7 +116,7 @@ if __name__ == '__main__':
     save_line_dict = {'ood': -8, 'osr': -1, 'acc': -1}
     # TODO: extend according to config
     args.benchmarks.extend([
-        'tin', 'nearood', 'mnist', 'svhn', 'texture', 'place365', 'places365',
+        'tin', 'nearood', 'mnist', 'svhn', 'texture', 'places365',
         'farood'
     ])
 

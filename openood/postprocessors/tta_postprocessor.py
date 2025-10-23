@@ -24,8 +24,6 @@ class TTAPostprocessor(BasePostprocessor):
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return
-        for cat in dir(self.config):
-            print(cat)
 
     def process_batch(self, net, data):
         pass
