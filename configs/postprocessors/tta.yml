@@ -6,3 +6,4 @@ postprocessor:
     bogus: 42
   postprocessor_sweep:
     dim_list: [100, 200]
+    bogus_list: [42, 23]

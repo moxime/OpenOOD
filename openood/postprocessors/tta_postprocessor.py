@@ -19,6 +19,7 @@ class TTAPostprocessor(BasePostprocessor):
         print('*** INIT ***')
         print(config)
         print('*** END OF INIT ***')
+        self.args_dict = self.config.postprocessor.postprocessor_sweep
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
