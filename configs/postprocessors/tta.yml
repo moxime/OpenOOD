@@ -3,5 +3,6 @@ postprocessor:
   APS_mode: True
   postprocessor_args:
     dim: 100
+    bogus: 42
   postprocessor_sweep:
     dim_list: [100, 200]
