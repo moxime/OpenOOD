@@ -44,6 +44,7 @@ from .rts_postprocessor import RTSPostprocessor
 from .gen_postprocessor import GENPostprocessor
 from .relation_postprocessor import RelationPostprocessor
 from .neco_postprocessor import NeCOPostprocessor
+from .tta_postprocessor import TTAPostprocessor
 
 
 def get_postprocessor(config: Config):
@@ -92,6 +93,7 @@ def get_postprocessor(config: Config):
         'relation': RelationPostprocessor,
         't2fnorm': T2FNormPostprocessor,
         'neco': NeCOPostprocessor,
+        'tta': TTAPostprocessor,
     }
 
     return postprocessors[config.postprocessor.name](config)
