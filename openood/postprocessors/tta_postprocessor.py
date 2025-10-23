@@ -31,9 +31,13 @@ class TTAPostprocessor(BasePostprocessor):
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any):
-        logits = net(data)
-        preds = logits.argmax(1)
-        softmax = F.softmax(logits, 1).cpu().numpy()
-        scores = -pairwise_distances_argmin_min(
-            softmax, np.array(self.mean_softmax_val), metric=self.kl)[1]
-        return preds, torch.from_numpy(scores)
+        output = net(data)
+        score = torch.softmax(output, dim=1)
+        conf, pred = torch.max(score, dim=1)
+        return pred, conf
+        # logits = net(data)
+        # preds = logits.argmax(1)
+        # softmax = F.softmax(logits, 1).cpu().numpy()
+        # scores = -pairwise_distances_argmin_min(
+        #     softmax, np.array(self.mean_softmax_val), metric=self.kl)[1]
+        # return preds, torch.from_numpy(scores)
