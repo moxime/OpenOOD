@@ -1,0 +1,9 @@
+postprocessor:
+  name: tta
+  APS_mode: True
+  postprocessor_args:
+    temperature: 100
+    bogus: 42
+  postprocessor_sweep:
+    temperature_list: [100, 200]
+    bogus_list: [42, 23]

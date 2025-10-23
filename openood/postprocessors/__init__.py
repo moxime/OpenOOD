@@ -47,3 +47,5 @@ from .relation_postprocessor import RelationPostprocessor
 from .t2fnorm_postprocessor import T2FNormPostprocessor
 from .reweightood_postprocessor import ReweightOODPostprocessor
 from .adascale_postprocessor import AdaScalePostprocessor
+from .neco_postprocessor import NeCOPostprocessor
+from .tta_postprocessor import TTAPostprocessor

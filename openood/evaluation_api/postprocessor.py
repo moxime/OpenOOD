@@ -16,7 +16,7 @@ from openood.postprocessors import (
     RMDSPostprocessor, SHEPostprocessor, CIDERPostprocessor, NPOSPostprocessor,
     GENPostprocessor, NNGuidePostprocessor, RelationPostprocessor,
     T2FNormPostprocessor, ReweightOODPostprocessor, fDBDPostprocessor,
-    AdaScalePostprocessor, IODINPostprocessor, NCIPostprocessor, NeCOPostprocessor)
+    AdaScalePostprocessor, IODINPostprocessor, NCIPostprocessor, NeCOPostprocessor, TTAPostprocessor)
 from openood.utils.config import Config, merge_configs
 
 postprocessors = {
