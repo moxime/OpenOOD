@@ -2,8 +2,8 @@ postprocessor:
   name: tta
   APS_mode: True
   postprocessor_args:
-    dim: 100
+    temperature: 100
     bogus: 42
   postprocessor_sweep:
-    dim_list: [100, 200]
+    temperature_list: [100, 200]
     bogus_list: [42, 23]

@@ -20,6 +20,9 @@ class TTAPostprocessor(BasePostprocessor):
         print(config)
         print('*** END OF INIT ***')
         self.args_dict = self.config.postprocessor.postprocessor_sweep
+        self.args = self.config.postprocessor.postprocessor_args
+        self.temperature = self.args.temperature
+        self.bogus = self.args.bogus
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
@@ -32,7 +35,7 @@ class TTAPostprocessor(BasePostprocessor):
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any):
-        output = net(data)
+        output = net(data) / (self.temperature + self.bogus)
         score = torch.softmax(output, dim=1)
         conf, pred = torch.max(score, dim=1)
         return pred, conf
@@ -45,8 +48,8 @@ class TTAPostprocessor(BasePostprocessor):
 
     def set_hyperparam(self, hyperparam: list):
         print('set hyperparam', *hyperparam)
-        self.dim, self.bogus = hyperparam
+        self.temperature, self.bogus = hyperparam
 
     def get_hyperparam(self):
         print('get hyperparam')
-        return [self.dim, self.bogus]
+        return [self.temperature, self.bogus]
