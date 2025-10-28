@@ -64,6 +64,8 @@ fi
 
 method=$2
 
+echo ckpt: $ckpt
+
 ls configs/datasets/$idset/$idset.yml \
        configs/networks/$network.yml \
        configs/datasets/$idset/"$idset"_ood.yml \
