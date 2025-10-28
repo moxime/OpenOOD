@@ -107,14 +107,14 @@ if [ $SLURM_ARRAY_TASK_ID -lt $num_of_methods ] ; then
        configs/pipelines/test/test_ood.yml \
        $ckpt
 
-    echo python main.py --config configs/datasets/$dataset/$dataset.yml \
-	 configs/networks/$network.yml \
-	 configs/datasets/$dataset/"$dataset"_ood.yml \
-	 configs/preprocessors/base_preprocessor.yml \
-	 configs/postprocessors/$method.yml \
-	 configs/pipelines/test/test_ood.yml \
-	 --checkpoint $ckpt \
-	 --seed $seed \
-	 --mark $SLURM_JOB_ID
+    python main.py --config configs/datasets/$dataset/$dataset.yml \
+	   configs/networks/$network.yml \
+	   configs/datasets/$dataset/"$dataset"_ood.yml \
+	   configs/preprocessors/base_preprocessor.yml \
+	   configs/postprocessors/$method.yml \
+	   configs/pipelines/test/test_ood.yml \
+	   --checkpoint $ckpt \
+	   --seed $seed \
+	   --mark $SLURM_JOB_ID
 
 fi
