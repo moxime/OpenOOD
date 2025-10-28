@@ -64,6 +64,13 @@ fi
 
 method=$2
 
+ls configs/datasets/$idset/$idset.yml \
+       configs/networks/$network.yml \
+       configs/datasets/$idset/"$idset"_ood.yml \
+       configs/preprocessors/base_preprocessor.yml \
+       configs/postprocessors/$method.yml \
+       configs/pipelines/test/test_ood.yml \
+       $ckpt
 
 echo python main.py --config configs/datasets/$idset/$idset.yml \
        configs/networks/$network.yml \
