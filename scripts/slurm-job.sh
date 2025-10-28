@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --output=/mnt/beegfs/home/ossonce/tia-dl-ossonce/ooddict/jobs/job-%j.out
-#SBATCH --error=/mnt/beegfs/home/ossonce/tia-dl-ossonce/ooddict/jobs/job-%j.err
+#SBATCH --output=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%A-%a.out
+#SBATCH --error=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%A-%a.err
 #SBATCH --mail-user=mossonce@gmail.com
 #SBATCH --mail-type=ALL
 #SBATCH --chdir=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood
