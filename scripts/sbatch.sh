@@ -54,7 +54,7 @@ case $1 in
 
     imagenet200)
 	idset=imagenet200
-	network=resnet18_32x32
+	network=resnet18_224x224
 	ckpt_suffix=base_e90_lr0.1_default
     ;;
 
