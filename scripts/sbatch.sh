@@ -28,6 +28,8 @@ echo "setting ulimit -n to $(ulimit -n)"
 
 seed=0
 
+unset ckpt
+
 # id / network: $1
 case $1 in
 
@@ -59,7 +61,7 @@ case $1 in
 esac
 
 if [ -z $ckpt ] ; then
-    ckpt=checkpoints/"$idset"_"network"_"$ckpt_suffix"/s"$seed"/best.ckpt
+    ckpt=checkpoints/"$idset"_"$network"_"$ckpt_suffix"/s"$seed"/best.ckpt
 fi
 
 method=$2
