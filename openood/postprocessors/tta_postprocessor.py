@@ -12,6 +12,33 @@ from .base_postprocessor import BasePostprocessor
 from .info import num_classes_dict
 
 
+def _unfold_(obj, prefix='', prefix_inc='  '):
+
+    if isinstance(obj, (list, tuple)):
+        for _ in obj:
+            _unfold_(obj, prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
+
+        return
+
+    if isinstance(obj, dict):
+
+        for _ in obj:
+            print(prefix + _)
+            _unfold_(obj[_], prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
+
+        return
+
+    str_ = type(obj)
+
+    if isinstance(obj, torch.utils.data.dataloader.DataLoader):
+        str_ = '{N}= {n}x{m} s: {s} from {f}'.format(n=len(obj), m=obj.batch_size,
+                                                     N=len(obj) * obj.batch_size,
+                                                     s=type(obj.sampler).__name__[0],
+                                                     f=obj.dataset)
+
+    print(prefix + str_)
+
+
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
@@ -27,6 +54,12 @@ class TTAPostprocessor(BasePostprocessor):
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return
+
+        print('ID LOADER DICT')
+        _unfold_(id_loader_dict)
+
+        print('OOD LOADER DICT')
+        _unfold_(ood_loader_dict)
 
         self.setup_flag = True
 
