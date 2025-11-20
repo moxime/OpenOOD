@@ -150,35 +150,42 @@ class MixtureTimeSampler(Sampler):
 
 class IDOODDataset(MixtureDataset):
 
-    def __init__(self, ind, ood):
+    def __init__(self, ind, **oods):
+
+        ood = MixtureDataset(**oods)
 
         super().__init__(ind=ind, ood=ood)
 
 
 class IDOODSampler(Sampler):
 
-    def __init__(self, ind_sampler, ood_sampler, ood_rate=0.1, **kw):
+    def __init__(self, data_source, ood_ratio=0.1, ood_period=1,
+                 IDSampler=RandomSampler, OODSubsampler=RandomSampler, **kw):
         """Params
 
-        - ind_sampler is a infinite random sampler on ind dataset
-
-        _ ood_sampler is a random sampler on ood
+        - data_source has to be a IDOODSampler
 
         """
 
-        assert ood_rate <= 1
-        assert ood_rate * len(ind_sampler) >= (1 - ood_rate) * len(ood_sampler)
+        assert ood_ratio <= 1
+        assert isinstance(data_source, IDOODDataset)
 
-        self.ood_rate = ood_rate
+        ind_sampler = IDSampler(data_source._datasets['ind'], num_samples=int(1e7))
+        ood_sampler = MixtureTimeSampler(data_source._datasets['ood'],  period=ood_period,
+                                         SubSampler=OODSubsampler)
+
+        assert ood_ratio * len(ind_sampler) >= (1 - ood_ratio) * len(ood_sampler)
+
+        self.ood_ratio = ood_ratio
         self.samplers = dict(ind=ind_sampler, ood=ood_sampler)
 
-        self._len = int(len(ood_sampler) / ood_rate)
+        self._len = int(len(ood_sampler) / ood_ratio)
 
     def __iter__(self):
 
         iters = {_: iter(self.samplers[_]) for _ in self.samplers}
         for _ in range(len(self)):
-            if torch.rand(1) <= self.ood_rate:
+            if torch.rand(1) <= self.ood_ratio:
                 try:
                     yield ('ood', next(iters['ood']))
                 except StopIteration:
@@ -230,7 +237,7 @@ if __name__ == '__main__':
 
         indset = MixtureDataset(x=FakeDataset('ind--', N))
 
-        ind_ood_set = IDOODDataset(indset, oodset)
+        ind_ood_set = IDOODDataset(indset, **oodsets)
 
         return indset, oodset, ind_ood_set
 
@@ -307,24 +314,21 @@ if __name__ == '__main__':
         # returns last batch
         return stream, entropy, s_
 
-    def test_ind_ood_sampler(N=1000, ood_rate=0.1, n_oods=4, batch_size=512, period=1e5, fig=True):
+    def test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4, batch_size=512, period=np.inf, fig=True):
 
-        indset, oodset, in_ood_set = create_datasets(oods=n_oods, N=N)
+        indset, oodset, in_out_set = create_datasets(oods=n_oods, N=N)
 
-        ind_sampler = RandomSampler(indset, num_samples=50*len(indset))
-        ood_sampler = MixtureTimeSampler(oodset,  period=period)
-
-        idod_sampler = IDOODSampler(ind_sampler, ood_sampler, ood_rate=ood_rate)
+        in_out_sampler = IDOODSampler(in_out_set, ood_ratio=ood_ratio, ood_period=period)
 
         num = dict(ind=0, ood=0)
-        for i, _ in enumerate(idod_sampler):
+        for i, _ in enumerate(in_out_sampler):
             num[_[0]] += 1
 
         n = i + 1
-        print('{} samples drawn {} ({:.1%}) of which are ood'.format(n, num['ood'], num['ood']/n))
+        print('{} samples drawn, {} ({:.1%}) of which are ood'.format(n, num['ood'], num['ood']/n))
 
-        loader = DataLoader(in_ood_set, batch_size=batch_size,
-                            sampler=idod_sampler)
+        loader = DataLoader(in_out_set, batch_size=batch_size,
+                            sampler=in_out_sampler)
 
         stats = {'ood-'+_: [] for _ in oodset._datasets}
         stats['ind-x'] = []
@@ -336,28 +340,31 @@ if __name__ == '__main__':
 
         if fig:
             fig = plt.figure('P={}'.format(period))
-            for _ in stats:
-                fig.gca().plot(stats[_], label=_)
+            y_ = np.vstack(list(stats.values()))
+            x = list(range(len(y_[0])))
+            fig.gca().stackplot(x, y_, labels=list(stats))
 
             fig.legend()
             fig.show()
 
-        return in_ood_set, loader, stats
+        return in_out_set, loader, stats
 
     plt.close('all')
 
     p_ = [1e100]
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+    p_ = [np.inf]
     p_ = []
 
     if p_:
         stream, entropy, batch = zip(*(test_mixture(K=4, N=10000, period=period, fig=True)
                                        for period in p_))
 
-    p_ = [1e100]
-    p_ = []
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+    p_ = [10, 20, 50, 100, 200, 500]
+    p_ = []
 
     if p_:
-        dset, loader, stats = zip(*(test_ind_ood_sampler(N=10000, ood_rate=0.1, n_oods=4, period=period)
+        dset, loader, stats = zip(*(test_ind_ood_sampler(N=10000, ood_ratio=0.1, n_oods=4,
+                                                         period=period, fig=True)
                                     for period in p_))

@@ -49,3 +49,4 @@ from .reweightood_postprocessor import ReweightOODPostprocessor
 from .adascale_postprocessor import AdaScalePostprocessor
 from .neco_postprocessor import NeCOPostprocessor
 from .tta_postprocessor import TTAPostprocessor
+from .debug_tta_postprocessor import DebugTTAPostprocessor

@@ -1,12 +1,15 @@
 import os
+import functools
+import numpy as np
 import torch
 from numpy import load
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
 from openood.preprocessors.test_preprocessor import TestStandardPreProcessor
 from openood.preprocessors.utils import get_preprocessor
 from openood.utils.config import Config
 
+from .mixture_dataset import IDOODDataset, IDOODSampler
 from .feature_dataset import FeatDataset
 from .imglist_dataset import ImglistDataset
 from .imglist_augmix_dataset import ImglistAugMixDataset
@@ -90,8 +93,88 @@ def get_dataloader(config: Config):
     return dataloader_dict
 
 
-def get_ood_dataloader(config: Config):
+def get_tta_ood_dataloader(config: Config):
+    ood_config = config.ood_dataset
     # specify custom dataset class
+    CustomDataset = eval(ood_config.dataset_class)
+    ood_dict = {}
+    dataloader_dict = {}
+    ood_period = config.evaluator.ood_period
+    chunk_size = config.evaluator.chunk_size
+    ood_ratio = config.evaluator.ood_ratio
+    if ood_period < 0:
+        ood_period = np.inf
+
+    IOSampler = functools.partial(IDOODSampler,
+                                  ood_ratio=ood_ratio, ood_period=ood_period)
+
+    ind_dataset = get_dataloader(config)['test'].dataset
+    IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
+
+    for split in ood_config.split_names:
+        split_config = ood_config[split]
+        preprocessor = get_preprocessor(config, split)
+        data_aux_preprocessor = TestStandardPreProcessor(config)
+        if split == 'val':
+            # validation set
+            name = ood_config.name + '_' + split
+            ood_dataset = CustomDataset(
+                name=name,
+                imglist_pth=split_config.imglist_pth,
+                data_dir=split_config.data_dir,
+                num_classes=ood_config.num_classes,
+                preprocessor=preprocessor,
+                data_aux_preprocessor=data_aux_preprocessor)
+            dataset = IODataset(**{name: ood_dataset})
+            dataloader = DataLoader(dataset,
+                                    batch_size=chunk_size,
+                                    sampler=IOSampler(dataset))
+
+            dataloader_dict[split] = dataloader
+        elif split != 'mixture':
+            # dataloaders for csid, nearood, farood
+            sub_dataloader_dict = {}
+            for dataset_name in split_config.datasets:
+                dataset_config = split_config[dataset_name]
+                ood_dataset = CustomDataset(
+                    name=ood_config.name + '_' + split,
+                    imglist_pth=dataset_config.imglist_pth,
+                    data_dir=dataset_config.data_dir,
+                    num_classes=ood_config.num_classes,
+                    preprocessor=preprocessor,
+                    data_aux_preprocessor=data_aux_preprocessor)
+
+                dataset = IODataset(**{dataset_name: ood_dataset})
+                dataloader = DataLoader(dataset,
+                                        batch_size=chunk_size,
+                                        sampler=IOSampler(dataset))
+
+                ood_dict[dataset_name] = ood_dataset
+                sub_dataloader_dict[dataset_name] = dataloader
+            if not ood_period:
+                # if not ood_period, we work on homogeneous ood sets
+                dataloader_dict[split] = sub_dataloader_dict
+
+        else:
+            sub_dataloader_dict = {}
+            for dataset_name in split_config.datasets:
+                suboods = {_: ood_dict[_] for _ in split_config[dataset_name].sets}
+                dataset = IODataset(**suboods)
+                dataloader = DataLoader(dataset,
+                                        batch_size=chunk_size,
+                                        sampler=IOSampler(dataset))
+                sub_dataloader_dict[dataset_name] = dataloader
+            if ood_period:
+                # if ood_period, we work on heterogeneous ood sets
+                dataloader_dict[split] = sub_dataloader_dict
+
+    return dataloader_dict
+
+
+def get_ood_dataloader(config: Config):
+    if config.evaluator.name == 'tta_ood':
+        return get_tta_ood_dataloader(config)
+    # specify custom dataset class for tta_ood
     ood_config = config.ood_dataset
     CustomDataset = eval(ood_config.dataset_class)
     dataloader_dict = {}
