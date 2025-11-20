@@ -42,12 +42,13 @@ class MixtureDataset(Dataset):
 
     def __getitem_from_tuple__(self, t):
 
-        def flattens(t1, t2):
-
-            if not isinstance(t2, tuple):
-                return (t1, t2)
-
-            return tuple((t1, *flattens(*t2)))
+        def flatten(*seq):
+            # TBF
+            for e in seq:
+                if isinstance(e, (list, tuple)):
+                    yield from flatten(*e)
+                else:
+                    yield e
 
         sub, i = t
 
@@ -57,7 +58,7 @@ class MixtureDataset(Dataset):
         data, label = self._datasets[sub][i]
 
         if self._flattens_sub:
-            return data, flattens(sub, label)
+            return data, tuple(flatten(sub, label))
         else:
             return data, (sub, label)
 
@@ -233,71 +234,53 @@ if __name__ == '__main__':
 
         return indset, oodset, ind_ood_set
 
-    def test_mixture(K=4, N=10000):
+    def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True):
 
         _, d, _ = create_datasets(oods=K, N=N)
 
-        # del m_
+        alpha = min(K / (K - 1) / period, 1)
+        p_0 = 1e-102 + alpha * (1-1/K)
+        m_mean_th = 1/p_0
+        m_std_th = (1-p_0)**0.5/p_0
 
-        try:
-            old_m_ = m_
-        except NameError:
-            old_m_ = None
+        s = MixtureTimeSampler(d, period=period)
 
-        m_ = [1000]
+        loader = DataLoader(d, sampler=s, batch_size=batch_size)
 
-        m_ = [1, 100, 500, 1000, 5000, 10000]
+        current_subset = None
+        stream = []
+        entropy = []
+        for _, (s_, y) in loader:
+            value, counts = np.unique(s_, return_counts=True)
+            entropy.append(np.log2(len(s_)) - (counts * np.log2(counts)).sum() / len(s_))
+            for subset in s_:
+                if subset != current_subset:
+                    current_subset = subset
+                    stream.append(1)
+                else:
+                    stream[-1] += 1
 
-        if old_m_ != m_:
-            streams = {}
+        stream = np.array(stream)
+        entropy = np.array(entropy).mean()
 
-        for m in m_:
-            if old_m_ == m_:
-                break
+        print('m = {:8}: {:5.1e} +-{:5.1e} ({:5.1e}+-({:5.1e}) 2^H={:.2f}'.format(period,
+                                                                                  stream.mean(),
+                                                                                  stream.std(),
+                                                                                  m_mean_th,
+                                                                                  m_std_th,
+                                                                                  2**entropy))
 
-            alpha = min(len(d_names) / (len(d_names) - 1) / m, 1)
-            p_0 = 1e-102 + alpha * (1-1/len(d_names))
-            m_mean_th = 1/p_0
-            m_std_th = (1-p_0)**0.5/p_0
+        if fig:
+            fig_name = '{}'.format(period)
+            fig = plt.figure(fig_name)
 
-            s = MixtureTimeSampler(d, period=m)
+            ax = fig.gca()
 
-            loader = DataLoader(d, sampler=s, batch_size=1)
-
-            current_subset = None
-            stream_lengths = []
-            for batch in loader:
-                for subset, data in zip(*batch):
-                    if subset != current_subset:
-                        current_subset = subset
-                        stream_lengths.append(1)
-                    else:
-                        stream_lengths[-1] += 1
-
-            stream_lengths = np.array(stream_lengths)
-            streams[m] = stream_lengths
-
-            print('m = {:8}: {:.1f} +-{:.1f} ({:.1f}+-({:.1f})'.format(m,
-                                                                       stream_lengths.mean(),
-                                                                       stream_lengths.std(),
-                                                                       m_mean_th, m_std_th))
-
-        figs = {}
-        plt.close('all')
-        for m in streams:
-
-            fig_name = '{}'.format(m)
-            figs[fig_name] = plt.figure(fig_name)
-
-            stream = streams[m]
-
-            ax = figs[fig_name].gca()
             ax.clear()
+            ax.plot(stream.cumsum(), stream, 'x')
 
-            ax.plot(stream.cumsum(), streams[m], 'x')
-
-            mean = streams[m].mean()
-            std = streams[m].std()
+            mean = stream.mean()
+            std = stream.std()
 
             ax.set_title('{:.1f} +/- {:.1f}'.format(mean, std))
 
@@ -310,18 +293,21 @@ if __name__ == '__main__':
 
             counts *= lengths
 
-            fig_name += ' hist'
-            figs[fig_name] = plt.figure(fig_name)
+            fig.show()
 
-            ax = figs[fig_name].gca()
+            fig_name += ' hist'
+            fig = plt.figure(fig_name)
+
+            ax = fig.gca()
 
             ax.bar(lengths, counts)
 
-        for f in figs:
-            if 'hist' in f:
-                figs[f].show()
+            fig.show()
 
-    def test_ind_ood_sampler(N=1000, ood_rate=0.1, n_oods=4, batch_size=512, period=1e5):
+        # returns last batch
+        return stream, entropy, s_
+
+    def test_ind_ood_sampler(N=1000, ood_rate=0.1, n_oods=4, batch_size=512, period=1e5, fig=True):
 
         indset, oodset, in_ood_set = create_datasets(oods=n_oods, N=N)
 
@@ -335,9 +321,7 @@ if __name__ == '__main__':
             num[_[0]] += 1
 
         n = i + 1
-        print('{} samples drawn {:.1%} of which are ood'.format(n, num['ood']/n))
-
-        batch_sampler = BatchSampler(idod_sampler, batch_size=512, drop_last=True)
+        print('{} samples drawn {} ({:.1%}) of which are ood'.format(n, num['ood'], num['ood']/n))
 
         loader = DataLoader(in_ood_set, batch_size=batch_size,
                             sampler=idod_sampler)
@@ -350,16 +334,30 @@ if __name__ == '__main__':
             for sub in stats:
                 stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(y))
 
-        return dset, loader, stats
+        if fig:
+            fig = plt.figure('P={}'.format(period))
+            for _ in stats:
+                fig.gca().plot(stats[_], label=_)
+
+            fig.legend()
+            fig.show()
+
+        return in_ood_set, loader, stats
 
     plt.close('all')
-    for period in [1, 2, 10, 100, 1e5]:
-        dset, loader, stats = test_ind_ood_sampler(N=10000, ood_rate=0.5, n_oods=2, period=period)
 
-        fig = plt.figure('P={}'.format(period))
-        for _ in stats:
+    p_ = [1e100]
+    p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+    p_ = []
 
-            fig.gca().plot(stats[_], label=_)
-        fig.legend()
+    if p_:
+        stream, entropy, batch = zip(*(test_mixture(K=4, N=10000, period=period, fig=True)
+                                       for period in p_))
 
-        fig.show()
+    p_ = [1e100]
+    p_ = []
+    p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+
+    if p_:
+        dset, loader, stats = zip(*(test_ind_ood_sampler(N=10000, ood_rate=0.1, n_oods=4, period=period)
+                                    for period in p_))
