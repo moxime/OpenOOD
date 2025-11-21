@@ -16,8 +16,8 @@ def compute_all_metrics(conf, label, pred):
 
 # accuracy
 def acc(pred, label):
-    ind_pred = pred[label != -1]
-    ind_label = label[label != -1]
+    ind_pred = pred[label >= 0]
+    ind_label = label[label >= 0]
 
     num_tp = np.sum(ind_pred == ind_label)
     acc = num_tp / len(ind_label)
@@ -28,7 +28,7 @@ def acc(pred, label):
 # fpr_recall
 def fpr_recall(conf, label, tpr):
     gt = np.ones_like(label)
-    gt[label == -1] = 0
+    gt[label < 0] = 0
 
     fpr_list, tpr_list, threshold_list = metrics.roc_curve(gt, conf)
     fpr = fpr_list[np.argmax(tpr_list >= tpr)]
@@ -42,7 +42,7 @@ def auc_and_fpr_recall(conf, label, tpr_th):
     # (changed from origin / openood)
     ood_indicator = np.ones_like(label)
     # changed from zeros ^
-    ood_indicator[label == -1] = 0
+    ood_indicator[label < 0] = 0
     #             changed from 1 ^
 
     # in the postprocessor we assume ID samples will have larger
@@ -67,11 +67,11 @@ def auc_and_fpr_recall(conf, label, tpr_th):
 
 # ccr_fpr
 def ccr_fpr(conf, fpr, pred, label):
-    ind_conf = conf[label != -1]
-    ind_pred = pred[label != -1]
-    ind_label = label[label != -1]
+    ind_conf = conf[label >= 0]
+    ind_pred = pred[label >= 0]
+    ind_label = label[label >= 0]
 
-    ood_conf = conf[label == -1]
+    ood_conf = conf[label < 0]
 
     num_ind = len(ind_conf)
     num_ood = len(ood_conf)

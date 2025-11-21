@@ -33,7 +33,7 @@ evaluator:
   # in the tested chunks, the ood source is randomly changed every ood_period (in average)
   # for instance: ood_period=1 will provide fully heterogeneous chunks of data
   # if ood_period is large (-1 for inf) we change ood when ood source is depleted
-  ood_period: 0
+  ood_period: 0.
   tta_epochs: 20
   
 recorder:

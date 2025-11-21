@@ -167,7 +167,45 @@ class IDOODDataset(MixtureDataset):
 
         ood = MixtureDataset(**oods)
 
+        self.sub_ood = {-i-1: _ for i, _ in enumerate(oods)}
+        self._ood_idx = {_: -i-1 for i, _ in enumerate(oods)}
+
         super().__init__(ind=ind, ood=ood)
+
+    def __getitem__(self, i):
+        """get item
+
+        label given by super() is in the form of (gt, sub, label)
+
+            - gt is ind / ood
+
+            - sub is dataset
+
+            - label is the class
+
+        here we want the label to be
+
+            - label if gt is ind
+            - -ood_idx (negative label) if gt is ood_conf
+
+        """
+
+        if isinstance(i, int) and i < 0:
+            return self.__getitem__(i + len(self))
+
+        sample = super().__getitem__(i)
+
+        gt, sub, label = sample['label'] if isinstance(sample, dict) else sample[1]
+
+        if gt == 'ood':
+            label = self._ood_idx[sub]
+
+        if isinstance(sample, dict):
+            sample['label'] = label
+        else:
+            sample = sample[0], label
+
+        return sample
 
 
 class IDOODSampler(Sampler):
@@ -365,11 +403,13 @@ if __name__ == '__main__':
 
         for batch in loader:
             if isinstance(batch, tuple):
-                iod, s, y = batch[1]
+                label = batch[1]
             else:
-                iod, s, y = batch['label']
+                label = batch['label']
+
+            s = [in_out_set.sub_ood.get(int(_), 'x') for _ in label]
             for sub in stats:
-                stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(y))
+                stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(s))
 
         if fig:
             fig = plt.figure('P={}'.format(period))

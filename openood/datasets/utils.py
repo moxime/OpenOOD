@@ -9,7 +9,7 @@ from openood.preprocessors.test_preprocessor import TestStandardPreProcessor
 from openood.preprocessors.utils import get_preprocessor
 from openood.utils.config import Config
 
-from .mixture_dataset import IDOODDataset, IDOODSampler
+from .mixture_dataset import IDOODDataset, IDOODSampler, MixtureDataset
 from .feature_dataset import FeatDataset
 from .imglist_dataset import ImglistDataset
 from .imglist_augmix_dataset import ImglistAugMixDataset
@@ -109,6 +109,7 @@ def get_tta_ood_dataloader(config: Config):
                                   ood_ratio=ood_ratio, ood_period=ood_period)
 
     ind_dataset = get_dataloader(config)['test'].dataset
+    ind_dataset = MixtureDataset(**{config.dataset.name: ind_dataset})
     IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
 
     for split in ood_config.split_names:
