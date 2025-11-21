@@ -52,17 +52,30 @@ class MixtureDataset(Dataset):
 
         sub, i = t
 
-        # if i >= self._lengths[sub]:
-        #     raise IndexError('{}[{}>{}]'.format(sub, i, self._lengths[sub]))
+        sample = self._datasets[sub][i]
 
-        data, label = self._datasets[sub][i]
+        if isinstance(sample, dict):
+            label = sample['label']
+        else:
+            label = sample[1]
 
         if self._flattens_sub:
-            return data, tuple(flatten(sub, label))
+            label = tuple(flatten(sub, label))
         else:
-            return data, (sub, label)
+            label = (sub, label)
+
+        if isinstance(sample, dict):
+            sample['label'] = label
+        else:
+            sample = sample[0], label
+
+        return sample
 
     def __getitem__(self, i):
+
+        if isinstance(i, int) and i < 0:
+
+            return self.__getitem__(i + self._len)
 
         if isinstance(i, tuple):
 
@@ -102,7 +115,7 @@ class MixtureTimeSampler(Sampler):
 
         self.lengths = lengths
 
-        self._len = sum(lengths.values())
+        self._len = min(lengths.values()) * len(lengths)
 
         self._first_index = {}
         i = 0
@@ -207,11 +220,12 @@ if __name__ == '__main__':
 
     class FakeDataset(Dataset):
 
-        def __init__(self, prefix, len=10000, num_of_classes=10):
+        def __init__(self, prefix, len=10000, num_of_classes=10, dtype='tuple'):
 
             self._proto = prefix + '{:05d}'
             self._len = len
             self.num_of_classes = num_of_classes
+            self._dtype = dtype
 
         def __getitem__(self, i):
 
@@ -220,30 +234,39 @@ if __name__ == '__main__':
 
             if i >= self._len:
                 raise IndexError('{}>={}'.format(i, self._len))
-            return self._proto.format(i), i % self.num_of_classes
+
+            data, label = self._proto.format(i), i % self.num_of_classes
+            if self._dtype == 'tuple':
+                return data, label
+
+            return {'data': data, 'label': label}
 
         def __len__(self):
 
             return self._len
 
         def __repr__(self):
-            return '[{}..{}]'.format(self[0][0], self[-1][0])
+            if self._dtype == 'tuple':
+                first, last = self[0][0], self[-1][0]
+            else:
+                first, last = self[0]['data'], self[-1]['data']
+            return '[{}..{}]'.format(first, last)
 
-    def create_datasets(oods=4, N=10000, ood_prefix='ood-'):
+    def create_datasets(oods=4, N=10000, ood_prefix='ood-', dtype='tuple'):
         d_names = list('abcdefghijklmnopqrstuvwxyz01234567890')[:oods]
-        oodsets = {_: FakeDataset(ood_prefix+_, N) for _ in d_names}
+        oodsets = {_: FakeDataset(ood_prefix+_, N, dtype=dtype) for _ in d_names}
 
         oodset = MixtureDataset(**oodsets)
 
-        indset = MixtureDataset(x=FakeDataset('ind--', N))
+        indset = MixtureDataset(x=FakeDataset('ind--', N, dtype=dtype))
 
         ind_ood_set = IDOODDataset(indset, **oodsets)
 
         return indset, oodset, ind_ood_set
 
-    def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True):
+    def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True, dtype='dict'):
 
-        _, d, _ = create_datasets(oods=K, N=N)
+        _, d, _ = create_datasets(oods=K, N=N, dtype=dtype)
 
         alpha = min(K / (K - 1) / period, 1)
         p_0 = 1e-102 + alpha * (1-1/K)
@@ -257,7 +280,13 @@ if __name__ == '__main__':
         current_subset = None
         stream = []
         entropy = []
-        for _, (s_, y) in loader:
+        for batch in loader:
+            if isinstance(batch, tuple):
+                data, labels = batch
+            else:
+                data, labels = batch['data'], batch['label']
+
+            _, (s_, y) = data, labels
             value, counts = np.unique(s_, return_counts=True)
             entropy.append(np.log2(len(s_)) - (counts * np.log2(counts)).sum() / len(s_))
             for subset in s_:
@@ -314,9 +343,10 @@ if __name__ == '__main__':
         # returns last batch
         return stream, entropy, s_
 
-    def test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4, batch_size=512, period=np.inf, fig=True):
+    def test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4, batch_size=512, period=np.inf,
+                             dtype='dict', fig=True):
 
-        indset, oodset, in_out_set = create_datasets(oods=n_oods, N=N)
+        indset, oodset, in_out_set = create_datasets(oods=n_oods, N=N, dtype=dtype)
 
         in_out_sampler = IDOODSampler(in_out_set, ood_ratio=ood_ratio, ood_period=period)
 
@@ -333,8 +363,11 @@ if __name__ == '__main__':
         stats = {'ood-'+_: [] for _ in oodset._datasets}
         stats['ind-x'] = []
 
-        for _, (iod, s, y) in loader:
-
+        for batch in loader:
+            if isinstance(batch, tuple):
+                iod, s, y = batch[1]
+            else:
+                iod, s, y = batch['label']
             for sub in stats:
                 stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(y))
 
@@ -363,8 +396,9 @@ if __name__ == '__main__':
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
     p_ = [10, 20, 50, 100, 200, 500]
     p_ = []
+    p_ = [1, 10, np.inf]
 
     if p_:
-        dset, loader, stats = zip(*(test_ind_ood_sampler(N=10000, ood_ratio=0.1, n_oods=4,
+        dset, loader, stats = zip(*(test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4,
                                                          period=period, fig=True)
                                     for period in p_))

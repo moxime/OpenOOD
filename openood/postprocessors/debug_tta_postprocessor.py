@@ -12,7 +12,7 @@ from .base_postprocessor import BasePostprocessor
 from .info import num_classes_dict
 
 
-def _unfold_(obj, prefix='', prefix_inc='  '):
+def _unfold_(obj, prefix='', prefix_inc='      '):
 
     if isinstance(obj, (list, tuple)):
         for _ in obj:
@@ -28,15 +28,18 @@ def _unfold_(obj, prefix='', prefix_inc='  '):
 
         return
 
-    str_ = type(obj)
+    str_ = [type(obj)]
 
     if isinstance(obj, torch.utils.data.dataloader.DataLoader):
-        str_ = '{N}= {n}x{m} s: {s} from {f}'.format(n=len(obj), m=obj.batch_size,
-                                                     N=len(obj) * obj.batch_size,
-                                                     s=type(obj.sampler).__name__[0],
-                                                     f=obj.dataset)
+        str_l = '{N}= {n}x{m} s: {s} from '.format(n=len(obj), m=obj.batch_size,
+                                                   N=len(obj) * obj.batch_size,
+                                                   s=type(obj.sampler).__name__[0])
+        d_str_ = str(obj.dataset).split('\n')
 
-    print(prefix + str_)
+        str_ = [(' ' * len(str_l) if i else str_l) + _ for i, _ in enumerate(d_str_)]
+
+    for _ in str_:
+        print(prefix + _)
 
 
 # A TTA PostProcessor to look at batches
@@ -44,9 +47,6 @@ class DebugTTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
-        print('*** INIT ***')
-        print(config)
-        print('*** END OF INIT ***')
         self.args_dict = self.config.postprocessor.postprocessor_sweep
         self.args = self.config.postprocessor.postprocessor_args
         self.temperature = self.args.temperature

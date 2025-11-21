@@ -20,9 +20,11 @@ class TTAOODEvaluator(BaseEvaluator):
         Args:
             config (Config): Config file from
         """
-        super(TTAEvaluator, self).__init__(config)
+        super(TTAOODEvaluator, self).__init__(config)
+        # predicted label (-1 for ood)
         self.id_pred = None
         self.id_conf = None
+        # true label
         self.id_gt = None
 
     def eval_ood(self,
@@ -41,65 +43,32 @@ class TTAOODEvaluator(BaseEvaluator):
         dataset_name = self.config.dataset.name
 
         if self.config.postprocessor.APS_mode:
-            assert 'val' in id_data_loaders
-            assert 'val' in ood_data_loaders
-            self.hyperparam_search(net, id_data_loaders['val'],
-                                   ood_data_loaders['val'], postprocessor)
+            raise NotImplementedError
 
-        print(f'Performing inference on {dataset_name} dataset...', flush=True)
-        id_pred, id_conf, id_gt = postprocessor.inference(
-            net, id_data_loaders['test'])
-        if self.config.recorder.save_scores:
-            self._save_scores(id_pred, id_conf, id_gt, dataset_name)
+        splits = ('mixture', 'nearood', 'farood')
 
-        if fsood:
-            # load csid data and compute confidence
-            for dataset_name, csid_dl in ood_data_loaders['csid'].items():
-                print(f'Performing inference on {dataset_name} dataset...',
-                      flush=True)
-                csid_pred, csid_conf, csid_gt = postprocessor.inference(
-                    net, csid_dl)
-                if self.config.recorder.save_scores:
-                    self._save_scores(csid_pred, csid_conf, csid_gt,
-                                      dataset_name)
-                id_pred = np.concatenate([id_pred, csid_pred])
-                id_conf = np.concatenate([id_conf, csid_conf])
-                id_gt = np.concatenate([id_gt, csid_gt])
-
-        # load nearood data and compute ood metrics
-        print(u'\u2500' * 70, flush=True)
-        self._eval_ood(net, [id_pred, id_conf, id_gt],
-                       ood_data_loaders,
-                       postprocessor,
-                       ood_split='nearood')
-
-        # load farood data and compute ood metrics
-        print(u'\u2500' * 70, flush=True)
-        self._eval_ood(net, [id_pred, id_conf, id_gt],
-                       ood_data_loaders,
-                       postprocessor,
-                       ood_split='farood')
+        for ood_split in [_ for _ in splits if _ in ood_data_loaders]:
+            # load nearood data and compute ood metrics
+            print(u'\u2500' * 70, flush=True)
+            self._eval_ood(net,
+                           ood_data_loaders,
+                           postprocessor,
+                           ood_split=ood_split)
 
     def _eval_ood(self,
                   net: nn.Module,
-                  id_list: List[np.ndarray],
                   ood_data_loaders: Dict[str, Dict[str, DataLoader]],
                   postprocessor: BasePostprocessor,
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
-        [id_pred, id_conf, id_gt] = id_list
         metrics_list = []
-        for dataset_name, ood_dl in ood_data_loaders[ood_split].items():
+        for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
-            ood_pred, ood_conf, ood_gt = postprocessor.inference(net, ood_dl)
-            ood_gt = -1 * np.ones_like(ood_gt)  # hard set to -1 as ood
-            if self.config.recorder.save_scores:
-                self._save_scores(ood_pred, ood_conf, ood_gt, dataset_name)
 
-            pred = np.concatenate([id_pred, ood_pred])
-            conf = np.concatenate([id_conf, ood_conf])
-            label = np.concatenate([id_gt, ood_gt])
+            pred, conf, label = postprocessor.inference(net, id_ood_dl)
+            if self.config.recorder.save_scores:
+                self._save_scores(pred, conf, label, dataset_name)
 
             print(f'Computing metrics on {dataset_name} dataset...')
 

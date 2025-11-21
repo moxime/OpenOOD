@@ -37,7 +37,7 @@ ood_dataset:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_places365.txt
   mixture:
-    datasets = [cifar100_mix, tin_mix]
+    datasets: [cifar100_mix, tin_mix]
     cifar100_mix:
       sets: [cifar100, mnist, texture]
       padding: [tin] 
