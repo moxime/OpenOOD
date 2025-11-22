@@ -72,6 +72,10 @@ class TTAOODEvaluator(BaseEvaluator):
 
             print(f'Computing metrics on {dataset_name} dataset...')
 
+            ood_metrics = compute_all_metrics(conf, label, pred)
+            if self.config.recorder.save_csv:
+                self._save_csv(ood_metrics, dataset_name=dataset_name)
+
             for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
                 kept_idx = (label >= 0) | (label == sub_ood_idx)
                 ood_metrics = compute_all_metrics(conf[kept_idx],
