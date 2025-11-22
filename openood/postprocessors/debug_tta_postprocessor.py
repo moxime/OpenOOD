@@ -87,6 +87,8 @@ class DebugTTAPostprocessor(BasePostprocessor):
 
         pred_list, conf_list, label_list = super().inference(net, data_loader, progress)
 
+        print(*label_list[:50])
+
         batch_size = data_loader.batch_size
 
         df = pd.DataFrame(columns=range(min(label_list), max(label_list) + 1))
@@ -108,7 +110,9 @@ class DebugTTAPostprocessor(BasePostprocessor):
         df['ood'] = df[ood_cols].sum(axis=1)
 
         cols = ['ind', *ood_cols]
-        print(df[cols].to_string())
+
+        df.loc['total'] = df.sum()
+        # print(df[cols].to_string())
 
         return pred_list, conf_list, label_list
 

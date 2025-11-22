@@ -115,7 +115,9 @@ class MixtureTimeSampler(Sampler):
 
         self.lengths = lengths
 
-        self._len = min(lengths.values()) * len(lengths)
+        self._unit_length = min(lengths.values())
+
+        self._len = self._unit_length * len(lengths)
 
         self._first_index = {}
         i = 0
@@ -142,7 +144,7 @@ class MixtureTimeSampler(Sampler):
         a = 1/self._period
 
         for t in range(len(self)):
-            p_ = [(self.lengths[_] - already_chosen[_]) / (len(self)-t) for _ in iters]
+            p_ = [(self._unit_length - already_chosen[_]) / (len(self)-t) for _ in iters]
             probabilites = torch.tensor(p_)
             # print('===', t)
             # print(already_chosen, ' '.join(map('{:.4f}'.format, p_)))
@@ -292,7 +294,8 @@ if __name__ == '__main__':
 
     def create_datasets(oods=4, N=10000, ood_prefix='ood-', dtype='tuple'):
         d_names = list('abcdefghijklmnopqrstuvwxyz01234567890')[:oods]
-        oodsets = {_: FakeDataset(ood_prefix+_, N, dtype=dtype) for _ in d_names}
+        oodsets = {_: FakeDataset(ood_prefix+_, (i+1) * N, dtype=dtype)
+                   for i, _ in enumerate(d_names)}
 
         oodset = MixtureDataset(**oodsets)
 
@@ -436,7 +439,8 @@ if __name__ == '__main__':
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
     p_ = [10, 20, 50, 100, 200, 500]
     p_ = []
-    p_ = [1, 10, np.inf]
+    p_ = [1]
+    p_ = [1,  np.inf]
 
     if p_:
         dset, loader, stats = zip(*(test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4,
