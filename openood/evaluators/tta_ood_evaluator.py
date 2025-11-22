@@ -1,8 +1,9 @@
 import csv
 import os
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
@@ -62,6 +63,11 @@ class TTAOODEvaluator(BaseEvaluator):
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
         metrics_list = []
+        # set random seed
+
+        torch.manual_seed(self.config.pipeline.seed)
+        np.random.seed(self.config.pipeline.seed)
+
         for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
