@@ -27,6 +27,7 @@ class TTAOODEvaluator(BaseEvaluator):
         self.id_conf = None
         # true label
         self.id_gt = None
+        self.tta_epochs = config.evaluator.tta_epochs
 
     def eval_ood(self,
                  net: nn.Module,
@@ -72,7 +73,7 @@ class TTAOODEvaluator(BaseEvaluator):
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            pred, conf, label = postprocessor.inference(net, id_ood_dl)
+            pred, conf, label = postprocessor.inference(net, id_ood_dl, self.tta_epochs)
             if self.config.recorder.save_scores:
                 self._save_scores(pred, conf, label, dataset_name)
 

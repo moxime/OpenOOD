@@ -25,21 +25,23 @@ class BasePostprocessor:
     def inference(self,
                   net: nn.Module,
                   data_loader: DataLoader,
+                  tta_epochs: int,
                   progress: bool = True):
         pred_list, conf_list, label_list = [], [], []
-        for batch in tqdm(data_loader,
-                          disable=not progress or not comm.is_main_process()):
-            data = batch['data'].cuda()
-            label = batch['label'].cuda()
-            pred, conf = self.postprocess(net, data)
+        for tta_epoch in range(tta_epochs):
+            for batch in tqdm(data_loader,
+                              disable=not progress or not comm.is_main_process()):
+                data = batch['data'].cuda()
+                label = batch['label'].cuda()
+                pred, conf = self.postprocess(net, data)
 
-            pred_list.append(pred.cpu())
-            conf_list.append(conf.cpu())
-            label_list.append(label.cpu())
+                pred_list.append(pred.cpu())
+                conf_list.append(conf.cpu())
+                label_list.append(label.cpu())
 
-        # convert values into numpy array
-        pred_list = torch.cat(pred_list).numpy().astype(int)
-        conf_list = torch.cat(conf_list).numpy()
-        label_list = torch.cat(label_list).numpy().astype(int)
+            # convert values into numpy array
+            pred_list = torch.cat(pred_list).numpy().astype(int)
+            conf_list = torch.cat(conf_list).numpy()
+            label_list = torch.cat(label_list).numpy().astype(int)
 
         return pred_list, conf_list, label_list
