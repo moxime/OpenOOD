@@ -35,6 +35,9 @@ pipeline:
 evaluator:
   name: tta_ood
   ood_scheme: ood
+
+postprocessor:
+  tta_epochs: null
   
 recorder:
   save_scores: True
