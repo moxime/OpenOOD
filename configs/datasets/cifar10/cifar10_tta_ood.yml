@@ -7,13 +7,16 @@ ood_dataset:
   num_machines: '@{num_machines}'
 
   dataset_class: ImglistDataset
-  batch_size: 128
+  batch_size: 32 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
   shuffle: False
 
   split_names: [val, nearood, farood, mixture]
+
+
   val:
     data_dir: ./data/images_classic/
     imglist_pth: ./data/benchmark_imglist/cifar10/val_tin.txt
+
   nearood:
     datasets: [cifar100, tin]
     cifar100:
@@ -22,6 +25,7 @@ ood_dataset:
     tin:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_tin.txt
+
   farood:
     datasets: [mnist, svhn, texture, places365]
     mnist:
@@ -36,6 +40,7 @@ ood_dataset:
     places365:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_places365.txt
+
   mixture:
     datasets: [cifar100_mix, tin_mix]
     cifar100_mix:
@@ -45,3 +50,8 @@ ood_dataset:
       sets: [tin, svhn, places365]
       padding: [cifar100]
   
+  aux:
+    datasets: [ind]
+    ind:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/train_cifar10.txt

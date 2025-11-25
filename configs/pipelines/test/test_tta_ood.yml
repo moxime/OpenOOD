@@ -37,7 +37,7 @@ evaluator:
   ood_scheme: ood
 
 postprocessor:
-  tta_epochs: null
+  tta_epochs: 0
   
 recorder:
   save_scores: True
