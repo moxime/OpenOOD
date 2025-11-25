@@ -48,20 +48,29 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.setup_flag = True
 
-    @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any):
-        output = net(data)
-        score = torch.softmax(output, dim=1)
-        conf, pred = torch.max(score, dim=1)
+
+        with torch.no_grad():
+            output = net(data)
+            score = torch.softmax(output, dim=1)
+            conf, pred = torch.max(score, dim=1)
 
         """if there is some finentuning, do it here (will be done tta_epochs +1)
-
+            
         - the first result is for 0 finetuning
-
+            
         - the last result yielded will be after tta_epochs finetuning
-
+            
         """
+
+        minibatch_loader = DataLoader(data, shuffle=True,
+                                      batch_size=self.config.postprocessor.tta_batch_size)
+        self.finetune(net, minibatch_loader)
+
         return pred, conf
+
+    def finetune(self, net, data):
+        pass
 
     def inference(self,
                   net: nn.Module,

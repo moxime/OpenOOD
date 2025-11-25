@@ -28,7 +28,7 @@ class TTAOODEvaluator(OODEvaluator):
         try:
             self.tta_epochs = config.postprocessor.tta_epochs
         except AttributeError:
-            self.tta_epochs = None
+            self.tta_epochs = 0
 
         try:
             self.reset_network = config.postprocessor.reset_network
