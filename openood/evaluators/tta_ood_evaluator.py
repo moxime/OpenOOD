@@ -70,13 +70,13 @@ class TTAOODEvaluator(OODEvaluator):
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
         # set random seed
-        tta_epochs = 1 if self.tta_epochs is None else self.tta_epochs
+        tta_epochs = 0 if self.tta_epochs is None else self.tta_epochs
 
         # Dataframe of results
         # results = [fpr, auroc, aupr_in, aupr_out, accuracy]
         columns = ['FPR@95', 'AUROC', 'AUPR_IN', 'AUPR_OUT', 'ACC']
         index = []
-        for epoch in range(1, tta_epochs + 1):
+        for epoch in range(0, tta_epochs + 1):
             for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
                 for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
                     index.append((epoch, sub_ood))
@@ -98,9 +98,9 @@ class TTAOODEvaluator(OODEvaluator):
                 pred, conf, label = postprocessor.inference(net, id_ood_dl, epochs=tta_epochs)
             else:
                 pred, conf, label = postprocessor.inference(net, id_ood_dl)
-                pred = {1: pred}
-                conf = {1: conf}
-                label = {1: label}
+                pred = {0: pred}
+                conf = {0: conf}
+                label = {0: label}
 
             print(f'Computing metrics on {dataset_name} dataset...')
             for epoch in pred:
@@ -112,7 +112,7 @@ class TTAOODEvaluator(OODEvaluator):
                 df.loc[(epoch, dataset_name)] = ood_metrics
 
                 for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
-                    kept_idx = (label >= 0) | (label == sub_ood_idx)
+                    kept_idx = (label[epoch] >= 0) | (label[epoch] == sub_ood_idx)
                     ood_metrics = compute_all_metrics(conf[epoch][kept_idx],
                                                       label[epoch][kept_idx],
                                                       pred[epoch][kept_idx])
@@ -121,10 +121,10 @@ class TTAOODEvaluator(OODEvaluator):
 
         if self.config.recorder.save_csv:
             for (epoch, dset) in df.index:
-                self._save_csv(list(df.loc[(epoch, dset)], dset,
-                               epoch=epoch, epochs=self.tta_epochs))
+                self._save_csv(list(df.loc[(epoch, dset)]), dset,
+                               epoch=epoch, epochs=self.tta_epochs)
 
-    def _save_csv(self, metrics, dataset_name, epoch=1, epochs=None):
+    def _save_csv(self, metrics, dataset_name, epoch=0, epochs=None):
         [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
 
         write_content = {
@@ -163,7 +163,7 @@ class TTAOODEvaluator(OODEvaluator):
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writerow(write_content)
 
-    def _save_scores(self, pred, conf, gt, save_name, epoch=1, epochs=None):
+    def _save_scores(self, pred, conf, gt, save_name, epoch=0, epochs=None):
         save_dir = os.path.join(self.config.output_dir, 'scores')
         if epochs:
             save_dir += '-{:02d}'.format(epoch)
@@ -172,3 +172,39 @@ class TTAOODEvaluator(OODEvaluator):
                  pred=pred,
                  conf=conf,
                  label=gt)
+
+    def eval_acc(self,
+                 net: nn.Module,
+                 data_loader: DataLoader,
+                 postprocessor: BasePostprocessor = None,
+                 epoch_idx: int = -1,
+                 fsood: bool = False,
+                 csid_data_loaders: DataLoader = None):
+        """Returns the accuracy score of the labels and predictions.
+
+        :return: float
+        """
+        if type(net) is dict:
+            net['backbone'].eval()
+        else:
+            net.eval()
+        id_pred, id_conf, id_gt = postprocessor.inference(net, data_loader)
+
+        self.id_pred = id_pred[0]
+        self.id_conf = id_conf[0]
+        self.id_gt = id_gt[0]
+
+        if fsood:
+            raise NotImplementedError
+            assert csid_data_loaders is not None
+            for dataset_name, csid_dl in csid_data_loaders.items():
+                csid_pred, csid_conf, csid_gt = postprocessor.inference(
+                    net, csid_dl)
+                self.id_pred = np.concatenate([self.id_pred, csid_pred])
+                self.id_conf = np.concatenate([self.id_conf, csid_conf])
+                self.id_gt = np.concatenate([self.id_gt, csid_gt])
+
+        metrics = {}
+        metrics['acc'] = sum(self.id_pred == self.id_gt) / len(self.id_pred)
+        metrics['epoch_idx'] = epoch_idx
+        return metrics

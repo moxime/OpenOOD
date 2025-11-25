@@ -76,7 +76,8 @@ class DebugTTAPostprocessor(TTAPostprocessor):
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any):
-        output = net(data) / (self.temperature + self.bogus)
+        # score = torch.randn((len(data), 10), device=data.device)
+        output = net(data) / (self.temperature)
         score = torch.softmax(output, dim=1)
         conf, pred = torch.max(score, dim=1)
         return pred, conf

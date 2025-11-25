@@ -1,3 +1,5 @@
+import os
+from typing import Any
 from tqdm import tqdm
 
 import torch
@@ -46,17 +48,41 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.setup_flag = True
 
+    @torch.no_grad()
+    def postprocess(self, net: nn.Module, data: Any):
+        output = net(data)
+        score = torch.softmax(output, dim=1)
+        conf, pred = torch.max(score, dim=1)
+
+        """if there is some finentuning, do it here (will be done tta_epochs +1)
+
+        - the first result is for 0 finetuning
+
+        - the last result yielded will be after tta_epochs finetuning
+
+        """
+        return pred, conf
+
     def inference(self,
                   net: nn.Module,
                   data_loader: DataLoader,
-                  epochs=1,
+                  epochs=0,
                   progress: bool = True):
 
         lists = {_: {} for _ in ('pred', 'conf', 'label')}
 
+        try:
+            reset_net_at_epoch = self.config.postprocessor.reset_network
+        except AttributeError:
+            reset_net_at_epoch = True
+        if reset_net_at_epoch:
+            reset_net_at_epoch = os.path.join(self.config.output_dir, 'tmp.ckpt')
+            net.save(reset_net_at_epoch)
         for batch in tqdm(data_loader,
                           disable=not progress or not comm.is_main_process()):
-            for epoch in range(1, epochs+1):
+            if reset_net_at_epoch:
+                net.load(reset_net_at_epoch)
+            for epoch in range(epochs+1):
                 data = batch['data'].cuda()
                 label = batch['label'].cuda()
                 pred, conf = self.postprocess(net, data)
