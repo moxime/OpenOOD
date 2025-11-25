@@ -1,6 +1,7 @@
 postprocessor:
   name: debug
   APS_mode: False
+  tta_epochs: 2
   postprocessor_args:
     temperature: 100
     bogus: 42

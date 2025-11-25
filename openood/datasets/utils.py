@@ -99,9 +99,9 @@ def get_tta_ood_dataloader(config: Config):
     CustomDataset = eval(ood_config.dataset_class)
     ood_dict = {}
     dataloader_dict = {}
-    ood_period = config.evaluator.ood_period
-    chunk_size = config.evaluator.chunk_size
-    ood_ratio = config.evaluator.ood_ratio
+    ood_period = config.pipeline.ood_period
+    chunk_size = config.pipeline.chunk_size
+    ood_ratio = config.pipeline.ood_ratio
     if ood_period < 0:
         ood_period = np.inf
 
@@ -173,7 +173,7 @@ def get_tta_ood_dataloader(config: Config):
 
 
 def get_ood_dataloader(config: Config):
-    if config.evaluator.name == 'tta_ood':
+    if config.pipeline.name == 'test_tta_ood':
         return get_tta_ood_dataloader(config)
     # specify custom dataset class for tta_ood
     ood_config = config.ood_dataset

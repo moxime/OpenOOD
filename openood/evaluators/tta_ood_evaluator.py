@@ -7,14 +7,17 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from openood.postprocessors import BasePostprocessor
+from openood.postprocessors import BasePostprocessor, TTAPostprocessor
 from openood.utils import Config
 
 from .base_evaluator import BaseEvaluator
+from .ood_evaluator import OODEvaluator
 from .metrics import compute_all_metrics
 
+import pandas as pd
 
-class TTAOODEvaluator(BaseEvaluator):
+
+class TTAOODEvaluator(OODEvaluator):
     def __init__(self, config: Config):
         """OOD Evaluator.
 
@@ -22,12 +25,15 @@ class TTAOODEvaluator(BaseEvaluator):
             config (Config): Config file from
         """
         super(TTAOODEvaluator, self).__init__(config)
-        # predicted label (-1 for ood)
-        self.id_pred = None
-        self.id_conf = None
-        # true label
-        self.id_gt = None
-        self.tta_epochs = config.evaluator.tta_epochs
+        try:
+            self.tta_epochs = config.postprocessor.tta_epochs
+        except AttributeError:
+            self.tta_epochs = None
+
+        try:
+            self.reset_network = config.postprocessor.reset_network
+        except AttributeError:
+            self.reset_network = True
 
     def eval_ood(self,
                  net: nn.Module,
@@ -63,8 +69,23 @@ class TTAOODEvaluator(BaseEvaluator):
                   postprocessor: BasePostprocessor,
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
-        metrics_list = []
         # set random seed
+        tta_epochs = 1 if self.tta_epochs is None else self.tta_epochs
+
+        # Dataframe of results
+        # results = [fpr, auroc, aupr_in, aupr_out, accuracy]
+        columns = ['FPR@95', 'AUROC', 'AUPR_IN', 'AUPR_OUT', 'ACC']
+        index = []
+        for epoch in range(1, tta_epochs + 1):
+            for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
+                for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
+                    index.append((epoch, sub_ood))
+                index.append((epoch, dataset_name))
+            # index.append((epoch, ood_split))
+
+        index = pd.MultiIndex.from_tuples(index, names=('epoch', 'dataset'))
+
+        df = pd.DataFrame(index=index, columns=columns)
 
         torch.manual_seed(self.config.pipeline.seed)
         np.random.seed(self.config.pipeline.seed)
@@ -73,60 +94,37 @@ class TTAOODEvaluator(BaseEvaluator):
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            pred, conf, label = postprocessor.inference(net, id_ood_dl, self.tta_epochs)
-            if self.config.recorder.save_scores:
-                self._save_scores(pred, conf, label, dataset_name)
+            if isinstance(postprocessor, TTAPostprocessor):  # may have tta_epochs
+                pred, conf, label = postprocessor.inference(net, id_ood_dl, epochs=tta_epochs)
+            else:
+                pred, conf, label = postprocessor.inference(net, id_ood_dl)
+                pred = {1: pred}
+                conf = {1: conf}
+                label = {1: label}
 
             print(f'Computing metrics on {dataset_name} dataset...')
+            for epoch in pred:
+                if self.config.recorder.save_scores:
+                    self._save_scores(pred[epoch], conf[epoch], label[epoch], dataset_name,
+                                      epoch=epoch, epochs=self.tta_epochs)
 
-            ood_metrics = compute_all_metrics(conf, label, pred)
-            if self.config.recorder.save_csv:
-                self._save_csv(ood_metrics, dataset_name=dataset_name)
+                ood_metrics = compute_all_metrics(conf[epoch], label[epoch], pred[epoch])
+                df.loc[(epoch, dataset_name)] = ood_metrics
 
-            for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
-                kept_idx = (label >= 0) | (label == sub_ood_idx)
-                ood_metrics = compute_all_metrics(conf[kept_idx],
-                                                  label[kept_idx],
-                                                  pred[kept_idx])
-                if self.config.recorder.save_csv:
-                    self._save_csv(ood_metrics, dataset_name=sub_ood)
-                metrics_list.append(ood_metrics)
+                for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
+                    kept_idx = (label >= 0) | (label == sub_ood_idx)
+                    ood_metrics = compute_all_metrics(conf[epoch][kept_idx],
+                                                      label[epoch][kept_idx],
+                                                      pred[epoch][kept_idx])
 
-        print('Computing mean metrics...', flush=True)
-        metrics_list = np.array(metrics_list)
-        metrics_mean = np.mean(metrics_list, axis=0)
+                    df.loc[(epoch, sub_ood)] = ood_metrics
+
         if self.config.recorder.save_csv:
-            self._save_csv(metrics_mean, dataset_name=ood_split)
+            for (epoch, dset) in df.index:
+                self._save_csv(list(df.loc[(epoch, dset)], dset,
+                               epoch=epoch, epochs=self.tta_epochs))
 
-    def eval_ood_val(self, net: nn.Module, id_data_loaders: Dict[str,
-                                                                 DataLoader],
-                     ood_data_loaders: Dict[str, DataLoader],
-                     postprocessor: BasePostprocessor):
-        if type(net) is dict:
-            for subnet in net.values():
-                subnet.eval()
-        else:
-            net.eval()
-        assert 'val' in id_data_loaders
-        assert 'val' in ood_data_loaders
-        if self.config.postprocessor.APS_mode:
-            val_auroc = self.hyperparam_search(net, id_data_loaders['val'],
-                                               ood_data_loaders['val'],
-                                               postprocessor)
-        else:
-            id_pred, id_conf, id_gt = postprocessor.inference(
-                net, id_data_loaders['val'])
-            ood_pred, ood_conf, ood_gt = postprocessor.inference(
-                net, ood_data_loaders['val'])
-            ood_gt = -1 * np.ones_like(ood_gt)  # hard set to -1 as ood
-            pred = np.concatenate([id_pred, ood_pred])
-            conf = np.concatenate([id_conf, ood_conf])
-            label = np.concatenate([id_gt, ood_gt])
-            ood_metrics = compute_all_metrics(conf, label, pred)
-            val_auroc = ood_metrics[1]
-        return {'auroc': 100 * val_auroc}
-
-    def _save_csv(self, metrics, dataset_name):
+    def _save_csv(self, metrics, dataset_name, epoch=1, epochs=None):
         [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
 
         write_content = {
@@ -139,6 +137,10 @@ class TTAOODEvaluator(BaseEvaluator):
         }
 
         fieldnames = list(write_content.keys())
+
+        if epochs:
+            fieldnames.insert(0, 'epoch')
+            write_content['epoch'] = epoch
 
         # print ood metric results
         print('FPR@95: {:.2f}, AUROC: {:.2f}'.format(100 * fpr, 100 * auroc),
@@ -161,106 +163,12 @@ class TTAOODEvaluator(BaseEvaluator):
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writerow(write_content)
 
-    def _save_scores(self, pred, conf, gt, save_name):
+    def _save_scores(self, pred, conf, gt, save_name, epoch=1, epochs=None):
         save_dir = os.path.join(self.config.output_dir, 'scores')
+        if epochs:
+            save_dir += '-{:02d}'.format(epoch)
         os.makedirs(save_dir, exist_ok=True)
         np.savez(os.path.join(save_dir, save_name),
                  pred=pred,
                  conf=conf,
                  label=gt)
-
-    def eval_acc(self,
-                 net: nn.Module,
-                 data_loader: DataLoader,
-                 postprocessor: BasePostprocessor = None,
-                 epoch_idx: int = -1,
-                 fsood: bool = False,
-                 csid_data_loaders: DataLoader = None):
-        """Returns the accuracy score of the labels and predictions.
-
-        :return: float
-        """
-        if type(net) is dict:
-            net['backbone'].eval()
-        else:
-            net.eval()
-        self.id_pred, self.id_conf, self.id_gt = postprocessor.inference(
-            net, data_loader)
-
-        if fsood:
-            assert csid_data_loaders is not None
-            for dataset_name, csid_dl in csid_data_loaders.items():
-                csid_pred, csid_conf, csid_gt = postprocessor.inference(
-                    net, csid_dl)
-                self.id_pred = np.concatenate([self.id_pred, csid_pred])
-                self.id_conf = np.concatenate([self.id_conf, csid_conf])
-                self.id_gt = np.concatenate([self.id_gt, csid_gt])
-
-        metrics = {}
-        metrics['acc'] = sum(self.id_pred == self.id_gt) / len(self.id_pred)
-        metrics['epoch_idx'] = epoch_idx
-        return metrics
-
-    def report(self, test_metrics):
-        print('Completed!', flush=True)
-
-    def hyperparam_search(
-        self,
-        net: nn.Module,
-        id_data_loader,
-        ood_data_loader,
-        postprocessor: BasePostprocessor,
-    ):
-        print('Starting automatic parameter search...')
-        aps_dict = {}
-        max_auroc = 0
-        hyperparam_names = []
-        hyperparam_list = []
-        count = 0
-        for name in postprocessor.args_dict.keys():
-            hyperparam_names.append(name)
-            count += 1
-        for name in hyperparam_names:
-            hyperparam_list.append(postprocessor.args_dict[name])
-        hyperparam_combination = self.recursive_generator(
-            hyperparam_list, count)
-        for hyperparam in hyperparam_combination:
-            postprocessor.set_hyperparam(hyperparam)
-            id_pred, id_conf, id_gt = postprocessor.inference(
-                net, id_data_loader)
-            ood_pred, ood_conf, ood_gt = postprocessor.inference(
-                net, ood_data_loader)
-            ood_gt = -1 * np.ones_like(ood_gt)  # hard set to -1 as ood
-            pred = np.concatenate([id_pred, ood_pred])
-            conf = np.concatenate([id_conf, ood_conf])
-            label = np.concatenate([id_gt, ood_gt])
-            ood_metrics = compute_all_metrics(conf, label, pred)
-            index = hyperparam_combination.index(hyperparam)
-            aps_dict[index] = ood_metrics[1]
-            print('Hyperparam:{}, auroc:{}'.format(hyperparam,
-                                                   aps_dict[index]))
-            if ood_metrics[1] > max_auroc:
-                max_auroc = ood_metrics[1]
-        for key in aps_dict.keys():
-            if aps_dict[key] == max_auroc:
-                postprocessor.set_hyperparam(hyperparam_combination[key])
-        print('Final hyperparam: {}'.format(postprocessor.get_hyperparam()))
-        return max_auroc
-
-    def recursive_generator(self, list, n):
-        if n == 1:
-            results = []
-            for x in list[0]:
-                k = []
-                k.append(x)
-                results.append(k)
-            return results
-        else:
-            results = []
-            temp = self.recursive_generator(list, n - 1)
-            for x in list[n - 1]:
-                for y in temp:
-                    k = y.copy()
-                    k.append(x)
-                    results.append(k)
-            return results

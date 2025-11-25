@@ -23,6 +23,7 @@ def get_pipeline(config: Config):
         'feat_extract': FeatExtractPipeline,
         'feat_extract_opengan': FeatExtractOpenGANPipeline,
         'test_ood': TestOODPipeline,
+        'test_tta_ood': TestOODPipeline,
         'test_ad': TestAdPipeline,
         'train_ad': TrainAdPipeline,
         'train_oe': TrainOEPipeline,

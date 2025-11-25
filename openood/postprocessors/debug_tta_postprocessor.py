@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 
 from .base_postprocessor import BasePostprocessor
+from .tta_postprocessor import TTAPostprocessor
 from .info import num_classes_dict
 import openood.utils.comm as comm
 
@@ -49,7 +50,7 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(BasePostprocessor):
+class DebugTTAPostprocessor(TTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
@@ -80,10 +81,10 @@ class DebugTTAPostprocessor(BasePostprocessor):
         conf, pred = torch.max(score, dim=1)
         return pred, conf
 
-    def inference(self,
-                  net: nn.Module,
-                  data_loader: DataLoader,
-                  progress: bool = True):
+    def bogus_inference(self,
+                        net: nn.Module,
+                        data_loader: DataLoader,
+                        progress: bool = True):
 
         pred_list, conf_list, label_list = super().inference(net, data_loader, progress)
 

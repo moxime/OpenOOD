@@ -1,15 +1,12 @@
-from typing import Any
-
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from sklearn.metrics import pairwise_distances_argmin_min
-import scipy
 from tqdm import tqdm
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+import openood.utils.comm as comm
+
 from .base_postprocessor import BasePostprocessor
-from .info import num_classes_dict
 
 
 def _unfold_(obj, prefix='', prefix_inc='  '):
@@ -42,47 +39,35 @@ def _unfold_(obj, prefix='', prefix_inc='  '):
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
-        self.setup_flag = False
-        print('*** INIT ***')
-        print(config)
-        print('*** END OF INIT ***')
-        self.args_dict = self.config.postprocessor.postprocessor_sweep
-        self.args = self.config.postprocessor.postprocessor_args
-        self.temperature = self.args.temperature
-        self.bogus = self.args.bogus
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return
 
-        print('ID LOADER DICT')
-        _unfold_(id_loader_dict)
-
-        print('OOD LOADER DICT')
-        _unfold_(ood_loader_dict)
-
         self.setup_flag = True
 
-    def process_batch(self, net, data):
-        pass
+    def inference(self,
+                  net: nn.Module,
+                  data_loader: DataLoader,
+                  epochs=1,
+                  progress: bool = True):
 
-    @torch.no_grad()
-    def postprocess(self, net: nn.Module, data: Any):
-        output = net(data) / (self.temperature + self.bogus)
-        score = torch.softmax(output, dim=1)
-        conf, pred = torch.max(score, dim=1)
-        return pred, conf
-        # logits = net(data)
-        # preds = logits.argmax(1)
-        # softmax = F.softmax(logits, 1).cpu().numpy()
-        # scores = -pairwise_distances_argmin_min(
-        #     softmax, np.array(self.mean_softmax_val), metric=self.kl)[1]
-        # return preds, torch.from_numpy(scores)
+        lists = {_: {} for _ in ('pred', 'conf', 'label')}
 
-    def set_hyperparam(self, hyperparam: list):
-        print('set hyperparam', *hyperparam)
-        self.temperature, self.bogus = hyperparam
+        for batch in tqdm(data_loader,
+                          disable=not progress or not comm.is_main_process()):
+            for epoch in range(1, epochs+1):
+                data = batch['data'].cuda()
+                label = batch['label'].cuda()
+                pred, conf = self.postprocess(net, data)
 
-    def get_hyperparam(self):
-        print('get hyperparam')
-        return [self.temperature, self.bogus]
+                for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
+                    lists[key].setdefault(epoch, []).append(tensor.cpu())
+
+            # convert values into numpy array
+        for _ in lists:
+            for epoch in lists[_]:
+                lists[_][epoch] = torch.cat(lists[_][epoch]).numpy().astype(
+                    float if _ == 'conf' else int)
+
+        return tuple(lists[_] for _ in ('pred', 'conf', 'label'))

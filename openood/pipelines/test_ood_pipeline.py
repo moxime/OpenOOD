@@ -1,6 +1,6 @@
 import time
 
-from openood.datasets import get_dataloader, get_ood_dataloader
+from openood.datasets import get_dataloader, get_ood_dataloader, get_tta_ood_dataloader
 from openood.evaluators import get_evaluator
 from openood.networks import get_network
 from openood.postprocessors import get_postprocessor
@@ -17,7 +17,10 @@ class TestOODPipeline:
 
         # get dataloader
         id_loader_dict = get_dataloader(self.config)
-        ood_loader_dict = get_ood_dataloader(self.config)
+        if self.config.pipeline.name == 'test_ood':
+            ood_loader_dict = get_ood_dataloader(self.config)
+        else:  # test_tta_ood
+            ood_loader_dict = get_tta_ood_dataloader(self.config)
 
         # init network
         net = get_network(self.config.network)
