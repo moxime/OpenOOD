@@ -112,7 +112,7 @@ class TTAOODEvaluator(OODEvaluator):
                 df.loc[(epoch, dataset_name)] = ood_metrics
 
                 for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
-                    kept_idx = (label >= 0) | (label == sub_ood_idx)
+                    kept_idx = (label[epoch] >= 0) | (label[epoch] == sub_ood_idx)
                     ood_metrics = compute_all_metrics(conf[epoch][kept_idx],
                                                       label[epoch][kept_idx],
                                                       pred[epoch][kept_idx])
@@ -121,8 +121,8 @@ class TTAOODEvaluator(OODEvaluator):
 
         if self.config.recorder.save_csv:
             for (epoch, dset) in df.index:
-                self._save_csv(list(df.loc[(epoch, dset)], dset,
-                               epoch=epoch, epochs=self.tta_epochs))
+                self._save_csv(list(df.loc[(epoch, dset)]), dset,
+                               epoch=epoch, epochs=self.tta_epochs)
 
     def _save_csv(self, metrics, dataset_name, epoch=0, epochs=None):
         [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
