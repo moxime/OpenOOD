@@ -99,3 +99,21 @@ def get_postprocessor(config: Config):
     }
 
     return postprocessors[config.postprocessor.name](config)
+
+
+def get_tta_postprocessor(config):
+
+    def modify_inference(func):
+
+        def modified_func(*a, epochs=0, **kw):
+            out = func(*a, **kw)
+            return tuple({0: _} for _ in out)
+
+        return modified_func
+
+    processor = get_postprocessor(config)
+
+    if not isinstance(processor, TTAPostprocessor):
+        processor.inference = modify_inference(processor.inference)
+
+    return processor
