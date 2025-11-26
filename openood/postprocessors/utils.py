@@ -107,7 +107,7 @@ def get_tta_postprocessor(config):
 
         def modified_func(*a, epochs=0, **kw):
             out = func(*a, **kw)
-            return tuple({0: _} for _ in out)
+            return tuple({0: _} for _ in out)
 
         return modified_func
 
