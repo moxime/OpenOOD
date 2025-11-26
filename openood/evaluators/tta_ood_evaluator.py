@@ -48,7 +48,6 @@ class TTAOODEvaluator(OODEvaluator):
             net.eval()
         assert 'test' in id_data_loaders, \
             'id_data_loaders should have the key: test!'
-        dataset_name = self.config.dataset.name
 
         if self.config.postprocessor.APS_mode:
             raise NotImplementedError
@@ -70,22 +69,10 @@ class TTAOODEvaluator(OODEvaluator):
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
         # set random seed
+
         tta_epochs = 0 if self.tta_epochs is None else self.tta_epochs
 
-        # Dataframe of results
-        # results = [fpr, auroc, aupr_in, aupr_out, accuracy]
-        columns = ['FPR@95', 'AUROC', 'AUPR_IN', 'AUPR_OUT', 'ACC']
-        index = []
-        for epoch in range(0, tta_epochs + 1):
-            for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
-                for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
-                    index.append((epoch, sub_ood))
-                index.append((epoch, dataset_name))
-            # index.append((epoch, ood_split))
-
-        index = pd.MultiIndex.from_tuples(index, names=('epoch', 'dataset'))
-
-        df = pd.DataFrame(index=index, columns=columns)
+        df = self._init_df(ood_data_loaders[ood_split], tta_epochs)
 
         torch.manual_seed(self.config.pipeline.seed)
         np.random.seed(self.config.pipeline.seed)
@@ -102,27 +89,50 @@ class TTAOODEvaluator(OODEvaluator):
                 conf = {0: conf}
                 label = {0: label}
 
-            print(f'Computing metrics on {dataset_name} dataset...')
             for epoch in pred:
                 if self.config.recorder.save_scores:
                     self._save_scores(pred[epoch], conf[epoch], label[epoch], dataset_name,
                                       epoch=epoch, epochs=self.tta_epochs)
 
-                ood_metrics = compute_all_metrics(conf[epoch], label[epoch], pred[epoch])
-                df.loc[(epoch, dataset_name)] = ood_metrics
+            self._update_df(df, ood_data_loaders[ood_split], dataset_name, pred, conf, label)
 
-                for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
-                    kept_idx = (label[epoch] >= 0) | (label[epoch] == sub_ood_idx)
-                    ood_metrics = compute_all_metrics(conf[epoch][kept_idx],
-                                                      label[epoch][kept_idx],
-                                                      pred[epoch][kept_idx])
-
-                    df.loc[(epoch, sub_ood)] = ood_metrics
+            print(f'Computing metrics on {dataset_name} dataset...')
 
         if self.config.recorder.save_csv:
             for (epoch, dset) in df.index:
                 self._save_csv(list(df.loc[(epoch, dset)]), dset,
                                epoch=epoch, epochs=self.tta_epochs)
+
+    def _init_df(self, ood_data_loader, epochs):
+        # Dataframe of results
+        # results = [fpr, auroc, aupr_in, aupr_out, accuracy]
+        columns = ['FPR@95', 'AUROC', 'AUPR_IN', 'AUPR_OUT', 'ACC']
+        index = []
+        for epoch in range(0, epochs + 1):
+            for dataset_name, id_ood_dl in ood_data_loader.items():
+                for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
+                    index.append((epoch, sub_ood))
+                index.append((epoch, dataset_name))
+            # index.append((epoch, ood_split))
+
+        index = pd.MultiIndex.from_tuples(index, names=('epoch', 'dataset'))
+        return pd.DataFrame(index=index, columns=columns)
+
+    def _update_df(self, df, ood_data_loader, dataset_name, pred, conf, label):
+
+        id_ood_dl = ood_data_loader[dataset_name]
+        for epoch in pred:
+
+            ood_metrics = compute_all_metrics(conf[epoch], label[epoch], pred[epoch])
+            df.loc[(epoch, dataset_name)] = ood_metrics
+
+            for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
+                kept_idx = (label[epoch] >= 0) | (label[epoch] == sub_ood_idx)
+                ood_metrics = compute_all_metrics(conf[epoch][kept_idx],
+                                                  label[epoch][kept_idx],
+                                                  pred[epoch][kept_idx])
+
+                df.loc[(epoch, sub_ood)] = ood_metrics
 
     def _save_csv(self, metrics, dataset_name, epoch=0, epochs=None):
         [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
