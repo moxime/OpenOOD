@@ -11,33 +11,6 @@ import openood.utils.comm as comm
 from .base_postprocessor import BasePostprocessor
 
 
-def _unfold_(obj, prefix='', prefix_inc='  '):
-
-    if isinstance(obj, (list, tuple)):
-        for _ in obj:
-            _unfold_(obj, prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
-
-        return
-
-    if isinstance(obj, dict):
-
-        for _ in obj:
-            print(prefix + _)
-            _unfold_(obj[_], prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
-
-        return
-
-    str_ = type(obj)
-
-    if isinstance(obj, torch.utils.data.dataloader.DataLoader):
-        str_ = '{N}= {n}x{m} s: {s} from {f}'.format(n=len(obj), m=obj.batch_size,
-                                                     N=len(obj) * obj.batch_size,
-                                                     s=type(obj.sampler).__name__[0],
-                                                     f=obj.dataset)
-
-    print(prefix + str_)
-
-
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
@@ -63,7 +36,7 @@ class TTAPostprocessor(BasePostprocessor):
             self.reset_net_at_chunk = os.path.join(self.config.output_dir, 'tmp.ckpt')
             net.save(self.reset_net_at_chunk)
 
-    def reset(net, data_loader):
+    def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
 
         for instance, if psotprocessor manages an history dict, this
@@ -121,7 +94,7 @@ class TTAPostprocessor(BasePostprocessor):
                 data = batch['data'].cuda()
                 label = batch['label'].cuda()
                 pred, conf = self.postprocess(net, data, epoch=epoch)
-                self.finetune(net, data, batch_size=self.batch_size, epoch=epoch)
+                self.finetune(net, data, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     lists[key].setdefault(epoch, []).append(tensor.cpu())
