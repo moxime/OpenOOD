@@ -106,7 +106,8 @@ def get_tta_ood_dataloader(config: Config):
         ood_period = np.inf
 
     IOSampler = functools.partial(IDOODSampler,
-                                  ood_ratio=ood_ratio, ood_period=ood_period)
+                                  ood_ratio=ood_ratio,
+                                  ood_period=max(1, ood_period))
 
     ind_dataset = get_dataloader(config)['test'].dataset
     ind_dataset = MixtureDataset(**{config.dataset.name: ind_dataset})

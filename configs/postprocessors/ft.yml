@@ -1,0 +1,9 @@
+postprocessor:
+  name: ft
+  APS_mode: False
+  tta_epochs: 20
+  postprocessor_args:
+    temperature: 100
+    lr: 5.0e-4 
+    wd: 5.0e-4
+    alpha: 0.2
