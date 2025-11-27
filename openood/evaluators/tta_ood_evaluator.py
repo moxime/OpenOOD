@@ -94,9 +94,8 @@ class TTAOODEvaluator(OODEvaluator):
                     self._save_scores(pred[epoch], conf[epoch], label[epoch], dataset_name,
                                       epoch=epoch, epochs=self.tta_epochs)
 
-            self._update_df(df, ood_data_loaders[ood_split], dataset_name, pred, conf, label)
-
             print(f'Computing metrics on {dataset_name} dataset...')
+            self._update_df(df, ood_data_loaders[ood_split], dataset_name, pred, conf, label)
 
         if self.config.recorder.save_csv:
             for (epoch, dset) in df.index:
@@ -112,8 +111,8 @@ class TTAOODEvaluator(OODEvaluator):
             for dataset_name, id_ood_dl in ood_data_loader.items():
                 for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
                     index.append((epoch, sub_ood))
-                index.append((epoch, dataset_name))
-            # index.append((epoch, ood_split))
+                if len(id_ood_dl.dataset.sub_ood) > 1:
+                    index.append((epoch, dataset_name))
 
         index = pd.MultiIndex.from_tuples(index, names=('epoch', 'dataset'))
         return pd.DataFrame(index=index, columns=columns)
@@ -136,7 +135,6 @@ class TTAOODEvaluator(OODEvaluator):
 
     def _save_csv(self, metrics, dataset_name, epoch=0, epochs=None):
         [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
-
         write_content = {
             'dataset': dataset_name,
             'FPR@95': '{:.2f}'.format(100 * fpr),

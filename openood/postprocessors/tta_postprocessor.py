@@ -16,25 +16,20 @@ class TTAPostprocessor(BasePostprocessor):
         super().__init__(config)
 
         # batch_size for fine_tuning
-        self.batch_size = self.config.ood_dataset.batch_size
-        try:
-            self.batch_size = self.config.postprocessor.batch_size
-        except AttributeError:
-            pass
+        self.batch_size = self.config.postprocessor.get('batch_size',
+                                                        self.config.ood_dataset.batch_size)
 
-        try:
-            self.reset_net_at_chunk = self.config.postprocessor.reset_network
-        except AttributeError:
-            self.reset_net_at_chunk = True
+        if self.config.postprocessor.get('reset_network', True):
+            self.reset_net_at_chunk = config.network.checkpoint
+        else:
+            self.reset_net_at_chunk = None
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training ind dataset
 
         """
-        if self.reset_net_at_chunk:
-            self.reset_net_at_chunk = os.path.join(self.config.output_dir, 'tmp.ckpt')
-            net.save(self.reset_net_at_chunk)
+        pass
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
@@ -45,20 +40,23 @@ class TTAPostprocessor(BasePostprocessor):
         """
         pass
 
+    def new_chunk(self, net, data):
+        """
+        done before postprocessing chunk (data)
+        it will do the same that if you start with if epoch==0 in postprocess
+        """
+
+        if self.reset_net_at_chunk:
+            net.load_state_dict(torch.load(self.reset_net_at_chunk))
+
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):
         """ postprocess is done for each "chunk" of data at each epoch
         """
 
-        if epoch == 0 and self.reset_net_at_chunk:
-            net.load(self.reset_net_at_chunk)
-
         output = net(data)
         score = torch.softmax(output, dim=1)
         conf, pred = torch.max(score, dim=1)
-
-        if epoch == 0:
-            self.predicted_labels = pred
 
         return pred, conf
 
@@ -67,9 +65,6 @@ class TTAPostprocessor(BasePostprocessor):
         retrieve results before any finetuning ; that's why
         postprocess is done epochs+1 times, to benefit from n=epochs
         finetuning)
-
-        - minibatch_loader is a shuffled datalpder on the processed
-        chunk with batch_size=self.batch_size
 
         """
 
@@ -88,13 +83,19 @@ class TTAPostprocessor(BasePostprocessor):
         lists = {_: {} for _ in ('pred', 'conf', 'label')}
 
         self.reset(net, data_loader)
+        num_chunk = 0
         for batch in tqdm(data_loader,
                           disable=not progress or not comm.is_main_process()):
+            num_chunk += 1
+            if num_chunk == 10:
+                break
+            data = batch['data'].cuda()
+            label = batch['label'].cuda()
+            self.new_chunk(net, data)
             for epoch in range(epochs+1):
-                data = batch['data'].cuda()
-                label = batch['label'].cuda()
                 pred, conf = self.postprocess(net, data, epoch=epoch)
-                self.finetune(net, data, epoch=epoch)
+                if epoch < epochs:
+                    self.finetune(net, data, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     lists[key].setdefault(epoch, []).append(tensor.cpu())
