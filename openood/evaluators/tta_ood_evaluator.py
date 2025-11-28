@@ -2,17 +2,15 @@ import csv
 import os
 from typing import Dict
 
-from tqdm import tqdm
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from openood.postprocessors import BasePostprocessor, TTAPostprocessor
+from openood.postprocessors import BasePostprocessor
 from openood.utils import Config
 
-from .base_evaluator import BaseEvaluator
 from .ood_evaluator import OODEvaluator
 from .metrics import compute_all_metrics
 
@@ -147,7 +145,7 @@ class TTAOODEvaluator(OODEvaluator):
             write_content['epoch'] = epoch
 
         # print ood metric results
-        print(dataset_name, '{}/{}'.format(epoch, epochs))
+        print('epoch {}/{}'.format(dataset_name, epoch, epochs))
         print('FPR@95: {:.2f}, AUROC: {:.2f}'.format(100 * fpr, 100 * auroc),
               end=' ',
               flush=True)
