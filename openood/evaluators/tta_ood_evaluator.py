@@ -2,6 +2,8 @@ import csv
 import os
 from typing import Dict
 
+from tqdm import tqdm
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -81,13 +83,7 @@ class TTAOODEvaluator(OODEvaluator):
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            if isinstance(postprocessor, TTAPostprocessor):  # may have tta_epochs
-                pred, conf, label = postprocessor.inference(net, id_ood_dl, epochs=tta_epochs)
-            else:
-                pred, conf, label = postprocessor.inference(net, id_ood_dl)
-                pred = {0: pred}
-                conf = {0: conf}
-                label = {0: label}
+            pred, conf, label = postprocessor.inference(net, id_ood_dl, epochs=tta_epochs)
 
             for epoch in pred:
                 if self.config.recorder.save_scores:
@@ -151,6 +147,7 @@ class TTAOODEvaluator(OODEvaluator):
             write_content['epoch'] = epoch
 
         # print ood metric results
+        print(dataset_name, '{}/{}'.format(epoch, epochs))
         print('FPR@95: {:.2f}, AUROC: {:.2f}'.format(100 * fpr, 100 * auroc),
               end=' ',
               flush=True)

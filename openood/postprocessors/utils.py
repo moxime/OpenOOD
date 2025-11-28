@@ -107,7 +107,7 @@ def get_tta_postprocessor(config):
 
     def modify_inference(func):
 
-        def modified_func(*a, epochs=0, **kw):
+        def modified_func(*a, epochs=0, progress_bar=None, **kw):
             out = func(*a, **kw)
             return tuple({0: _} for _ in out)
 
