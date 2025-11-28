@@ -90,6 +90,9 @@ class TTAOODEvaluator(OODEvaluator):
 
             print(f'Computing metrics on {dataset_name} dataset...')
             self._update_df(df, ood_data_loaders[ood_split], dataset_name, pred, conf, label)
+            for epoch in pred:
+                self._print_metrics(list(df.loc[(epoch, dataset_name)]),
+                                    dataset_name, epoch, max(pred))
 
         if self.config.recorder.save_csv:
             for (epoch, dset) in df.index:
@@ -144,17 +147,6 @@ class TTAOODEvaluator(OODEvaluator):
             fieldnames.insert(0, 'epoch')
             write_content['epoch'] = epoch
 
-        # print ood metric results
-        print('epoch {}/{}'.format(dataset_name, epoch, epochs))
-        print('FPR@95: {:.2f}, AUROC: {:.2f}'.format(100 * fpr, 100 * auroc),
-              end=' ',
-              flush=True)
-        print('AUPR_IN: {:.2f}, AUPR_OUT: {:.2f}'.format(
-            100 * aupr_in, 100 * aupr_out),
-            flush=True)
-        print('ACC: {:.2f}'.format(accuracy * 100), flush=True)
-        print(u'\u2500' * 70, flush=True)
-
         csv_path = os.path.join(self.config.output_dir, 'ood.csv')
         if not os.path.exists(csv_path):
             with open(csv_path, 'w', newline='') as csvfile:
@@ -165,6 +157,19 @@ class TTAOODEvaluator(OODEvaluator):
             with open(csv_path, 'a', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writerow(write_content)
+
+    def _print_metrics(self, metrics, dataset_name, epoch=0, epochs=None):
+        [fpr, auroc, aupr_in, aupr_out, accuracy] = metrics
+        # print ood metric results
+        print('epoch {}/{}'.format(dataset_name, epoch, epochs))
+        print('FPR@95: {:.2f}, AUROC: {:.2f}'.format(100 * fpr, 100 * auroc),
+              end=' ',
+              flush=True)
+        print('AUPR_IN: {:.2f}, AUPR_OUT: {:.2f}'.format(
+            100 * aupr_in, 100 * aupr_out),
+            flush=True)
+        print('ACC: {:.2f}'.format(accuracy * 100), flush=True)
+        print(u'\u2500' * 70, flush=True)
 
     def _save_scores(self, pred, conf, gt, save_name, epoch=0, epochs=None):
         save_dir = os.path.join(self.config.output_dir, 'scores')

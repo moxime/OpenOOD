@@ -34,7 +34,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
     @staticmethod
     def _uniform_ce(output, label, **kw):
-
+        """ label is useless here, bu has to be in the signature of self.alternate_loss
+        """
         return -output.softmax(-1).mean()
 
     def reset(self, net, data_loader):
