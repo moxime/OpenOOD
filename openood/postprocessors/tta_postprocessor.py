@@ -83,9 +83,12 @@ class TTAPostprocessor(BasePostprocessor):
         lists = {_: {} for _ in ('pred', 'conf', 'label')}
 
         self.reset(net, data_loader)
+        num_chunk = 0
         for batch in tqdm(data_loader,
                           disable=not progress or not comm.is_main_process()):
-
+            num_chunk += 1
+            if num_chunk == 10:
+                break
             data = batch['data'].cuda()
             label = batch['label'].cuda()
             self.new_chunk(net, data)
