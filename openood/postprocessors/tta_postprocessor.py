@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from typing import Any
 from tqdm import tqdm
 
@@ -60,6 +61,28 @@ class TTAPostprocessor(BasePostprocessor):
 
         return pred, conf
 
+    @classmethod
+    def _finetune_mode(cls, net, finetune=True):
+
+        if isinstance(net, dict):
+            for subnet in net.values():
+                cls.finetune_mode(subnet, finetune=finetune)
+
+        return
+        for module in net.modules():
+            if isinstance(module, (torch.nn.BatchNorm2d, torch.nn.BatchNorm1d)):
+                module.eval()
+            else:
+                module.train(finetune)
+
+    @contextmanager
+    def finetune_mode(self, net):
+        self._finetune_mode(net, True)
+        try:
+            yield
+        finally:
+            self._finetune_mode(net, False)
+
     def finetune(self, net, data, epoch=0):
         """finetune is done after postprocess (that way you can
         retrieve results before any finetuning ; that's why
@@ -102,7 +125,8 @@ class TTAPostprocessor(BasePostprocessor):
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
                 if epoch < epochs:
-                    self.finetune(net, data, epoch=epoch)
+                    with self.finetune_mode(net):
+                        self.finetune(net, data, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
