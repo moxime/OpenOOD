@@ -10,6 +10,8 @@ num_workers: 0
 num_machines: 1
 machine_rank: 0
 
+debug: False # if debug, stops after 10 chunks of data
+
 network:
   pretrained: True
 

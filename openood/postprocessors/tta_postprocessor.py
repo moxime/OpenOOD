@@ -25,6 +25,8 @@ class TTAPostprocessor(BasePostprocessor):
         else:
             self.reset_net_at_chunk = None
 
+        self.debug = config.debug
+
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training ind dataset
@@ -115,7 +117,7 @@ class TTAPostprocessor(BasePostprocessor):
                                 disable=not progress or not comm.is_main_process())
         for batch in progress_bar:
             num_chunk += 1
-            if num_chunk == 10:
+            if num_chunk == 10 and self.debug:
                 break
             data = batch['data'].cuda()
             label = batch['label'].cuda()
