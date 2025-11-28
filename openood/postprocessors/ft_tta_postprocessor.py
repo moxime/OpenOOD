@@ -55,6 +55,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """ postprocess is done for each "chunk" of data at each epoch
         """
 
+        # print('*** postprocess on epoch', epoch)
         output = net(data)
         score = torch.softmax(output / self.temperature, dim=1)
 
@@ -75,6 +76,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         alpha = self.alpha
 
+        # print('*** finetune on epoch', epoch)
         # for instance you can create a minibatch_loader
         minibatch_loader = DataLoader(list(zip(data, self.predicted_labels)), shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
@@ -98,7 +100,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self.optimizer.zero_grad()
 
             loss = self.loss(id_output, id_label)
-            loss += alpha*self.loss(unknown_output, unknown_label)
+            loss += alpha*self.alternate_loss(unknown_output, unknown_label)
 
             loss.backward()
             self.optimizer.step()
