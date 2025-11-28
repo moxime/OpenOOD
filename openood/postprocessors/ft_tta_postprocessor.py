@@ -34,9 +34,21 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
     @staticmethod
     def _uniform_ce(output, label, **kw):
-        """ label is useless here, bu has to be in the signature of self.alternate_loss
+        """label is useless here, bu has to be in the signature of self.alternate_loss
+
+
+        returns CE(unif, p(y|x)):
+
+            CE = -\frac 1 {num_class} \sum_y log p(y|x) 
+               = -output.softmax(-1).log()
+
+
+        that can be calculated as:
+                -output.mean(-1) + output.logsumexp(-1)
+
         """
-        return -output.softmax(-1).mean()
+
+        return -output.mean() + output.logsumexp(-1).mean()
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
@@ -58,15 +70,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         # print('*** postprocess on epoch', epoch)
         output = net(data)
-        score = torch.softmax(output / self.temperature, dim=1)
+        score = torch.softmax(output, dim=1)
 
         if epoch == 0:
             conf, pred = torch.max(score, dim=1)
-            self.predicted_labels = pred
+            self.chunk_predicted_labels = pred
         else:
-            conf = torch.gather(score, -1, self.predicted_labels.unsqueeze(0)).squeeze(0)
+            conf = torch.gather(score, -1, self.chunk_predicted_labels.unsqueeze(-1)).squeeze(-1)
 
-        return self.predicted_labels, conf
+        return self.chunk_predicted_labels, conf
 
     def finetune(self, net, data, epoch=0):
         """finetune is done after postprocess (that way you can
@@ -75,11 +87,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         finetuning)
 
         """
+
         alpha = self.alpha
 
-        # print('*** finetune on epoch', epoch)
         # for instance you can create a minibatch_loader
-        minibatch_loader = DataLoader(list(zip(data, self.predicted_labels)), shuffle=True,
+        minibatch_loader = DataLoader(list(zip(data, self.chunk_predicted_labels)), shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
 
         for unknown_batch in minibatch_loader:
