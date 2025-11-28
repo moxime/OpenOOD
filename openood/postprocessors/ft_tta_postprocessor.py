@@ -34,9 +34,21 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
     @staticmethod
     def _uniform_ce(output, label, **kw):
-        """ label is useless here, bu has to be in the signature of self.alternate_loss
+        """label is useless here, bu has to be in the signature of self.alternate_loss
+
+
+        returns CE(unif, p(y|x)):
+
+            CE = -\frac 1 {num_class} \sum_y log p(y|x) 
+               = -output.softmax(-1).log()
+
+
+        that can be calculated as:
+                -output.mean(-1) + output.logsumexp(-1)
+
         """
-        return -output.softmax(-1).mean()
+
+        return -output.mean() + output.logsumexp(-1).mean()
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
