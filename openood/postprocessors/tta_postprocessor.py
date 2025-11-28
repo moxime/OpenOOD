@@ -78,14 +78,19 @@ class TTAPostprocessor(BasePostprocessor):
                   data_loader: DataLoader,
                   epoch=0,
                   epochs=0,
+                  progress_bar=None,
                   progress: bool = True):
 
-        lists = {_: {} for _ in ('pred', 'conf', 'label')}
+        outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
         self.reset(net, data_loader)
         num_chunk = 0
-        for batch in tqdm(data_loader,
-                          disable=not progress or not comm.is_main_process()):
+
+        if progress_bar is None:
+            progress_bar = tqdm(data_loader,
+                                dynamic_ncols=True,
+                                disable=not progress or not comm.is_main_process())
+        for batch in progress_bar:
             num_chunk += 1
             if num_chunk == 10:
                 break
@@ -93,17 +98,19 @@ class TTAPostprocessor(BasePostprocessor):
             label = batch['label'].cuda()
             self.new_chunk(net, data)
             for epoch in range(epochs+1):
+                progress_bar.set_postfix_str('{}:{}'.format(num_chunk, epoch))
+
                 pred, conf = self.postprocess(net, data, epoch=epoch)
                 if epoch < epochs:
                     self.finetune(net, data, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
-                    lists[key].setdefault(epoch, []).append(tensor.cpu())
+                    outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
             # convert values into numpy array
-        for _ in lists:
-            for epoch in lists[_]:
-                lists[_][epoch] = torch.cat(lists[_][epoch]).numpy().astype(
+        for _ in outputs_by_epochs:
+            for epoch in outputs_by_epochs[_]:
+                outputs_by_epochs[_][epoch] = torch.cat(outputs_by_epochs[_][epoch]).numpy().astype(
                     float if _ == 'conf' else int)
 
-        return tuple(lists[_] for _ in ('pred', 'conf', 'label'))
+        return tuple(outputs_by_epochs[_] for _ in ('pred', 'conf', 'label'))
