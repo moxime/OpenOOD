@@ -45,10 +45,11 @@ class VGG19(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.fc = nn.Linear(latent_dim, num_classes)
 
-    def forward(self, x, layer_index=None,
-                return_feature_list=False, return_feature=False,
-                threshold=None,
-                ):
+    def forward(self, x,
+                return_feature=False,
+                return_feature_list=False,
+                layer_index=None,
+                threshold=None):
 
         feature_list = []
         if layer_index is None:
