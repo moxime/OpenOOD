@@ -6,6 +6,11 @@ from openood.networks import get_network
 from openood.postprocessors import get_postprocessor
 from openood.utils import setup_logger
 
+from openood.networks.ash_net import ASHNet
+from openood.networks.react_net import ReactNet
+from openood.networks.scale_net import ScaleNet
+from openood.networks.adascale_net import AdaScaleANet, AdaScaleLNet
+
 
 class TestOODPipeline:
     def __init__(self, config) -> None:
@@ -21,6 +26,19 @@ class TestOODPipeline:
 
         # init network
         net = get_network(self.config.network)
+
+        # wrap base model to work with certain postprocessors
+        postprocessor_name = config.postprocessor.name
+        if postprocessor_name == 'react':
+            net = ReactNet(net)
+        elif postprocessor_name == 'ash':
+            net = ASHNet(net)
+        elif postprocessor_name == 'scale':
+            net = ScaleNet(net)
+        elif postprocessor_name == 'adascale_a':
+            net = AdaScaleANet(net)
+        elif postprocessor_name == 'adascale_l':
+            net = AdaScaleLNet(net)
 
         # init ood evaluator
         evaluator = get_evaluator(self.config)
