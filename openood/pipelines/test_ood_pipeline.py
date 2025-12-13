@@ -28,7 +28,7 @@ class TestOODPipeline:
         net = get_network(self.config.network)
 
         # wrap base model to work with certain postprocessors
-        postprocessor_name = config.postprocessor.name
+        postprocessor_name = self.config.postprocessor.name
         if postprocessor_name == 'react':
             net = ReactNet(net)
         elif postprocessor_name == 'ash':
