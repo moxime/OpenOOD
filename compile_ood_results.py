@@ -70,7 +70,8 @@ if __name__ == '__main__':
         df['network_arch'] = config['network'].get('name')
         df['method'] = config['postprocessor']['name']
 
-        df.set_index(['network_arch', 'network_number',  'gamma_z', 'method', 'dataset'], inplace=True)
+        df.set_index(['network_arch', 'network_number',  'gamma_z',
+                     'method', 'dataset'], inplace=True)
         acc_df = df['ACC']
         df = df[['FPR@95', 'AUROC']].unstack()
         df[('ACC', ind_set)] = acc_df.iloc[0]
@@ -89,8 +90,8 @@ if __name__ == '__main__':
     c = df.columns
 
     kept_datasets = ['mnist32r']
-    kept_datasets = ['farood', 'nearood', ind_set]
     kept_datasets = ['mnist32r', 'svhn', ind_set]
+    kept_datasets = ['farood', 'nearood', ind_set]
 
     printed_cols = c.isin(kept_datasets, level='set')
 
