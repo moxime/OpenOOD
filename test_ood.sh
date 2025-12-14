@@ -3,7 +3,7 @@
 methods=("msp" "odin" "mds"  "ebo" "gradnorm" "vim" "react" "ash") 
 gammas=(0)
 network=vgg19_32x32
-# network=cvae_encoder
+network=cvae_encoder
 
 while [[ $# -gt 0 ]]; do
     case $1 in
