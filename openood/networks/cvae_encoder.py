@@ -146,7 +146,8 @@ class VGG19CVAE(nn.Module):
 
         self_state_dict = self.state_dict()
 
-        self_keys = {cat: [_ for _ in self_state_dict if _.startswith(cat+'.')] for cat in categories}
+        self_keys = {cat: [_ for _ in self_state_dict if _.startswith(cat+'.')]
+                     for cat in categories}
 
         # dict of {self_key: other_key}
         key_map = {}
@@ -185,8 +186,10 @@ class VGG19CVAE(nn.Module):
         new_state = self._transfer_state_dict(state_dict)
         return super().load_state_dict(new_state, **kw)
 
-    def forward(self, x, layer_index=None,
-                return_feature_list=False, return_feature=False,
+    def forward(self, x,
+                return_feature=False,
+                return_feature_list=False,
+                layer_index=None,
                 threshold=None):
 
         feature_list = []
