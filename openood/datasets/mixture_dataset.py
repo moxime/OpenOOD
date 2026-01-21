@@ -455,7 +455,7 @@ if __name__ == '__main__':
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
     p_ = []
     p_ = [1, 100, 1000, 10000, np.inf]
-    p_ = [1e100]
+    p_ = [1e4]
 
     if p_:
         stream, entropy, batch = zip(*(test_mixture(K=4, N=N, period=period, fig=True)

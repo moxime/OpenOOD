@@ -99,7 +99,7 @@ def get_tta_ood_dataloader(config: Config):
     CustomDataset = eval(ood_config.dataset_class)
     ood_dict = {}
     dataloader_dict = {}
-    ood_period = config.pipeline.ood_period
+    ood_period = config.evaluator.ood_period
     chunk_size = config.pipeline.chunk_size
     ood_ratio = config.pipeline.ood_ratio
     if ood_period < 0:
@@ -153,9 +153,7 @@ def get_tta_ood_dataloader(config: Config):
 
                 ood_dict[dataset_name] = ood_dataset
                 sub_dataloader_dict[dataset_name] = dataloader
-            if not ood_period:
-                # if not ood_period, we work on homogeneous ood sets
-                dataloader_dict[split] = sub_dataloader_dict
+            dataloader_dict[split] = sub_dataloader_dict
 
         else:
             sub_dataloader_dict = {}
@@ -166,9 +164,7 @@ def get_tta_ood_dataloader(config: Config):
                                         batch_size=chunk_size,
                                         sampler=IOSampler(dataset))
                 sub_dataloader_dict[dataset_name] = dataloader
-            if ood_period:
-                # if ood_period, we work on heterogeneous ood sets
-                dataloader_dict[split] = sub_dataloader_dict
+            dataloader_dict[split] = sub_dataloader_dict
 
     return dataloader_dict
 

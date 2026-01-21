@@ -31,6 +31,13 @@ class TTAOODEvaluator(OODEvaluator):
             self.tta_epochs = 0
 
         try:
+            self.ood_period = config.evaluator.ood_period
+            print('ood_period set to {}'.format(self.ood_period))
+        except AttributeError:
+            self.ood_period = 0.
+            print('ood_period not defined, set to 0')
+
+        try:
             self.reset_network = config.postprocessor.reset_network
         except AttributeError:
             self.reset_network = True
@@ -49,7 +56,7 @@ class TTAOODEvaluator(OODEvaluator):
         if self.config.postprocessor.APS_mode:
             raise NotImplementedError
 
-        splits = ('mixture', 'nearood', 'farood')
+        splits = ('mixture',) if self.ood_period else ('nearood', 'farood')
 
         for ood_split in [_ for _ in splits if _ in id_ood_data_loaders]:
             # load nearood data and compute ood metrics
@@ -61,7 +68,7 @@ class TTAOODEvaluator(OODEvaluator):
 
     def _eval_ood(self,
                   net: nn.Module,
-                  ood_data_loaders: Dict[str, Dict[str, DataLoader]],
+                  id_ood_data_loaders: Dict[str, Dict[str, DataLoader]],
                   postprocessor: BasePostprocessor,
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
@@ -69,12 +76,12 @@ class TTAOODEvaluator(OODEvaluator):
 
         tta_epochs = 0 if self.tta_epochs is None else self.tta_epochs
 
-        df = self._init_df(ood_data_loaders[ood_split], tta_epochs)
+        df = self._init_df(id_ood_data_loaders[ood_split], tta_epochs)
 
         torch.manual_seed(self.config.pipeline.seed)
         np.random.seed(self.config.pipeline.seed)
 
-        for dataset_name, id_ood_dl in ood_data_loaders[ood_split].items():
+        for dataset_name, id_ood_dl in id_ood_data_loaders[ood_split].items():
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
@@ -86,7 +93,7 @@ class TTAOODEvaluator(OODEvaluator):
                                       epoch=epoch, epochs=self.tta_epochs)
 
             print(f'Computing metrics on {dataset_name} dataset...')
-            self._update_df(df, ood_data_loaders[ood_split], dataset_name, pred, conf, label)
+            self._update_df(df, id_ood_data_loaders[ood_split], dataset_name, pred, conf, label)
             for epoch in pred:
                 self._print_metrics(list(df.loc[(epoch, dataset_name)]),
                                     dataset_name, epoch, max(pred))

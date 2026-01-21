@@ -1,4 +1,4 @@
-exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{pipeline.ood_period}'_'@{postprocessor.tta_epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
+exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{evaluator.ood_period}'_'@{postprocessor.tta_epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
 output_dir: ./results/
 save_output: True
 merge_option: default # disabled if 'save_output' is False
@@ -26,6 +26,10 @@ pipeline:
   ood_ratio: 0.1
   #
   #
+  
+evaluator:
+  name: tta_ood
+  ood_scheme: ood
   # ood_period
   # if 0: do not test mixtures of ood
   # if > 0: mixtures of ood are tested
@@ -33,10 +37,6 @@ pipeline:
   # for instance: ood_period=1 will provide fully heterogeneous chunks of data
   # if ood_period is large (-1 for inf) we change ood when ood source is depleted
   ood_period: 0.
-  
-evaluator:
-  name: tta_ood
-  ood_scheme: ood
 
 postprocessor:
   tta_epochs: 0
