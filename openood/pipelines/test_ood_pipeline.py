@@ -20,7 +20,7 @@ class TestOODPipeline:
         # get dataloader
         id_loader_dict = get_dataloader(self.config)
         if is_tta:
-            ood_loader_dict = get_tta_ood_dataloader(self.config)
+            id_ood_loader_dict = get_tta_ood_dataloader(self.config)
         else:  # test_tta_ood
             ood_loader_dict = get_ood_dataloader(self.config)
 
@@ -37,7 +37,10 @@ class TestOODPipeline:
             postprocessor = get_postprocessor(self.config)
 
         # setup for distance-based methods
-        postprocessor.setup(net, id_loader_dict, ood_loader_dict)
+        if is_tta:
+            postprocessor.setup(net, id_loader_dict, id_ood_loader_dict)
+        else:
+            postprocessor.setup(net, id_loader_dict, ood_loader_dict)
         print('\n', flush=True)
         print(u'\u2500' * 70, flush=True)
 
@@ -66,7 +69,12 @@ class TestOODPipeline:
                                postprocessor,
                                fsood=True)
         else:
-            evaluator.eval_ood(net, id_loader_dict, ood_loader_dict,
-                               postprocessor)
+            if is_tta:
+                evaluator.eval_ood(net, id_ood_loader_dict,
+                                   postprocessor)
+            else:
+                evaluator.eval_ood(net, id_loader_dict, ood_loader_dict,
+                                   postprocessor)
+
         print('Time used for eval_ood: {:.0f}s'.format(time.time() - timer))
         print('Completed!', flush=True)
