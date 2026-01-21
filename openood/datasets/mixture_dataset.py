@@ -134,29 +134,52 @@ class MixtureTimeSampler(Sampler):
 
     def __iter__(self):
 
-        iters = {_: iter(self._subsamplers[_]) for _ in self._subsamplers}
-        already_chosen = {_: 0 for _ in self.lengths}
+        DEBUG = False
 
-        choose_from = list(already_chosen)
+        iters = {_: iter(self._subsamplers[_]) for _ in self._subsamplers}
+        remainders = {_: self._unit_length for _ in self.lengths}
+
+        choose_from = list(remainders)
 
         chosen_idx = None
+        chosen = None
 
         a = 1/self._period
 
         for t in range(len(self)):
-            p_ = [(self._unit_length - already_chosen[_]) / (len(self)-t) for _ in iters]
-            probabilites = torch.tensor(p_)
-            # print('===', t)
-            # print(already_chosen, ' '.join(map('{:.4f}'.format, p_)))
 
-            if chosen_idx is not None and probabilites[chosen_idx] > 0:
-                probabilites *= a
-                probabilites[chosen_idx] += (1 - a)
+            remain_current_subset = remainders.get(chosen, 0)
+            change_subset = torch.rand(1) < a
 
-            chosen_idx = torch.multinomial(probabilites, 1)
+            # if no remaining in current subset, change subset
+            if remain_current_subset == 0:
+                change_subset = 1
+
+            # all remaining samples are in current subset
+            if remain_current_subset == len(self) - t:
+                change_subset = 0
+
+            change_subset = (((torch.rand(1) < a) or (remain_current_subset == 0)) and
+                             (remain_current_subset < len(self) - t))
+
+            if DEBUG:
+                print('*** a:', a, 't:', t, '/', len(self),  'remain prev:',
+                      remain_current_subset, len(self) - t - remain_current_subset,
+                      chosen, remainders)
+
+            if change_subset:
+                p_ = [remainders[_] / (len(self) - t - remain_current_subset) for _ in iters]
+                if chosen_idx is not None:
+                    p_[chosen_idx] = 0.
+                probabilites = torch.tensor(p_)
+                chosen_idx = torch.multinomial(probabilites, 1)
+
+                if DEBUG:
+                    print(' '.join(map('{:.2e}'.format, probabilites.numpy())))
 
             chosen = choose_from[chosen_idx]
-            already_chosen[chosen] += 1
+            remainders[chosen] -= 1
+            # print(chosen, remainders, remain_prev)
 
             # print('[{:d}]    '.format(*chosen_idx), ' '.join(map('{:.4f}'.format, probabilites)))
             index = next(iters[chosen]) + self._first_index[chosen]
@@ -427,22 +450,25 @@ if __name__ == '__main__':
 
     plt.close('all')
 
-    p_ = [1e100]
+    N = 10000
+
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
-    p_ = [np.inf]
     p_ = []
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = [1e100]
 
     if p_:
-        stream, entropy, batch = zip(*(test_mixture(K=4, N=10000, period=period, fig=True)
+        stream, entropy, batch = zip(*(test_mixture(K=4, N=N, period=period, fig=True)
                                        for period in p_))
 
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
     p_ = [10, 20, 50, 100, 200, 500]
-    p_ = []
     p_ = [1]
     p_ = [1,  np.inf]
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = []
 
     if p_:
-        dset, loader, stats = zip(*(test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4,
+        dset, loader, stats = zip(*(test_ind_ood_sampler(N=N, ood_ratio=0.1, n_oods=4,
                                                          period=period, fig=True)
                                     for period in p_))
