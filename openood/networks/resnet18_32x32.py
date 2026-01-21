@@ -165,3 +165,10 @@ class ResNet18_32x32(nn.Module):
 
     def get_fc_layer(self):
         return self.fc
+
+
+if __name__ == '__main__':
+
+    net = ResNet18_32x32()
+
+    print(net)

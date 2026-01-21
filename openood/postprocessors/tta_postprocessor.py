@@ -101,7 +101,6 @@ class TTAPostprocessor(BasePostprocessor):
     def inference(self,
                   net: nn.Module,
                   data_loader: DataLoader,
-                  epoch=0,
                   epochs=0,
                   progress_bar=None,
                   progress: bool = True):
@@ -109,21 +108,21 @@ class TTAPostprocessor(BasePostprocessor):
         outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
         self.reset(net, data_loader)
-        num_chunk = 0
 
         if progress_bar is None:
             progress_bar = tqdm(data_loader,
                                 dynamic_ncols=True,
                                 disable=not progress or not comm.is_main_process())
-        for batch in progress_bar:
-            num_chunk += 1
-            if num_chunk == 10 and self.debug:
+        num_chunk = 0
+        for chunk in progress_bar:
+            if chunk == 10 and self.debug:
                 break
-            data = batch['data'].cuda()
-            label = batch['label'].cuda()
+            num_chunk += 1
+            data = chunk['data'].cuda()
+            label = chunk['label'].cuda()
             self.new_chunk(net, data)
             for epoch in range(epochs+1):
-                progress_bar.set_postfix_str('{}:{}'.format(num_chunk, epoch))
+                progress_bar.set_postfix_str('{}:{}'.format(num_chunk + 1, epoch))
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
                 if epoch < epochs:

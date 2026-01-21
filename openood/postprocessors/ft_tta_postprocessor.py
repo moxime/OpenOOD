@@ -53,9 +53,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
 
-        for instance, if psotprocessor manages an history dict, this
-        might be the place to do it (by overriding this method)
-
         """
         return
 
@@ -87,6 +84,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
         finetuning)
 
         """
+
+        for p in net.parameters():
+            p.requires_grad = False
+
+        for p in net.fc.parameters():
+            p.requires_grad = True
 
         alpha = self.alpha
 

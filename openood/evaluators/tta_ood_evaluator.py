@@ -37,8 +37,7 @@ class TTAOODEvaluator(OODEvaluator):
 
     def eval_ood(self,
                  net: nn.Module,
-                 id_data_loaders: Dict[str, DataLoader],
-                 ood_data_loaders: Dict[str, Dict[str, DataLoader]],
+                 id_ood_data_loaders: Dict[str, Dict[str, DataLoader]],
                  postprocessor: BasePostprocessor,
                  fsood: bool = False):
         if type(net) is dict:
@@ -46,19 +45,17 @@ class TTAOODEvaluator(OODEvaluator):
                 subnet.eval()
         else:
             net.eval()
-        assert 'test' in id_data_loaders, \
-            'id_data_loaders should have the key: test!'
 
         if self.config.postprocessor.APS_mode:
             raise NotImplementedError
 
         splits = ('mixture', 'nearood', 'farood')
 
-        for ood_split in [_ for _ in splits if _ in ood_data_loaders]:
+        for ood_split in [_ for _ in splits if _ in id_ood_data_loaders]:
             # load nearood data and compute ood metrics
             print(u'\u2500' * 70, flush=True)
             self._eval_ood(net,
-                           ood_data_loaders,
+                           id_ood_data_loaders,
                            postprocessor,
                            ood_split=ood_split)
 
