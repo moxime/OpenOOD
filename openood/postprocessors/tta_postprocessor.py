@@ -115,7 +115,7 @@ class TTAPostprocessor(BasePostprocessor):
                                 disable=not progress or not comm.is_main_process())
         num_chunk = 0
         for chunk in progress_bar:
-            if chunk == 10 and self.debug:
+            if (num_chunk > self.debug * len(data_loader)) and self.debug:
                 break
             num_chunk += 1
             data = chunk['data'].cuda()
