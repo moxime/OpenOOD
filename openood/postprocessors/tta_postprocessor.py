@@ -27,6 +27,16 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.debug = config.debug
 
+    def add_to_progress_bar(self, data, conf, pred, num_chunk, epoch, epochs):
+
+        n_aux = len(self.aux_set)
+        r = (conf < 0).float().mean()
+        q1 = conf.quantile(0.25)
+        q2 = conf.quantile(0.5)
+        q3 = conf.quantile(0.75)
+        return (f'aux: {n_aux} [{epoch}/{epochs}] r={r:.1%}'
+                f' conf: [{q1:.3f} -- {q2:.3f} -- {q3:.3f}]')
+
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training ind dataset
@@ -50,7 +60,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         each element is added as a dictionary
 
-        {'data': x, 'conf': conf, 'pred': pred, 'where': 'aux'} 
+        {'data': x, 'conf': conf, 'pred': pred, 'where': 'aux'}
 
         """
         pass
@@ -113,17 +123,15 @@ class TTAPostprocessor(BasePostprocessor):
                   net: nn.Module,
                   data_loader: DataLoader,
                   epochs=0,
-                  progress_bar=None,
                   progress: bool = True):
 
         outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
         self.reset(net, data_loader)
 
-        if progress_bar is None:
-            progress_bar = tqdm(data_loader,
-                                dynamic_ncols=True,
-                                disable=not progress or not comm.is_main_process())
+        progress_bar = tqdm(data_loader,
+                            dynamic_ncols=True,
+                            disable=not progress or not comm.is_main_process())
         num_chunk = 0
         for chunk in progress_bar:
             if (num_chunk > self.debug * len(data_loader)) and self.debug:
@@ -133,9 +141,14 @@ class TTAPostprocessor(BasePostprocessor):
             label = chunk['label'].cuda()
             self.new_chunk(net, data)
             for epoch in range(epochs+1):
-                progress_bar.set_postfix_str('{}:{}'.format(num_chunk + 1, epoch))
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
+                progress_bar.set_postfix_str(self.add_to_progress_bar(data,
+                                                                      conf,
+                                                                      pred,
+                                                                      num_chunk,
+                                                                      epoch,
+                                                                      epochs))
 
                 self.update_aux_set(data, conf, pred, epoch=epoch)
 

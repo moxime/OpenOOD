@@ -135,6 +135,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
             conf = batch['conf'].cuda()
             where = batch['where']
 
+            # count = {w: len([_ == w for _ in where]) for w in set(where)}
+            # print('***', count)
+
             logits, features = net(data, return_feature=True)
             original_loss = self.loss(logits, pred)
 
