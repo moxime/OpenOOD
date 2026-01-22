@@ -9,6 +9,24 @@ from .tta_postprocessor import TTAPostprocessor
 
 from openood.losses import uniform_ce
 import logging
+from time import time
+
+
+time_register = {}
+
+
+def _register_time(k, i, t=None, reg=time_register, since=None):
+
+    if t is None:
+        t = time.time()
+
+    if k not in reg:
+        reg[k] = {}
+
+    reg[k][i]   = {'t': t}
+
+    if since is not None:
+        reg[k][i]['dt'] = t - reg[since][i]['t']
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
@@ -44,14 +62,17 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return uniform_ce(logits)
 
-    def loss_weights(self, x, logit, feature, label, where):
+    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
         """ return loss_weight, alternate_loss_weight for sample x """
 
         if where == 'id':
             return (1., 0.)
 
-        if where in ('aux', 'mix'):
+        if where == 'aux':
             return (0., self.beta)
+
+        if where == 'mix':
+            return (0., self.beta if (epoch < epochs//2 or conf < self.aux_threshold) else 0.)
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
@@ -75,7 +96,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         _, pred = torch.max(score, dim=1)
         self.chunk_predicted_labels = pred
 
-    def update_aux_set(self, data, conf, pred, update=True):
+    def update_aux_set(self, data, conf, pred):
 
         # if epoch not in (epochs // 2, epochs):
         #     return None
@@ -86,11 +107,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
             if s < self.aux_threshold:
                 added.append(dict(data=x, pred=y, conf=s, where='aux'))
 
-        if update:
-            for _ in added:
-                self.aux_set.append(_)
-                if len(self.aux_set) > self.auxset_size:
-                    self.aux_set.pop(0)
+        self.aux_set.extend(added)
+        while len(self.aux_set) > self.auxset_size:
+            self.aux_set.pop(0)
 
         return added
 
@@ -116,6 +135,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
 
+        _register_time('start-FT', epoch)
+
         try:
             id_batch = next(self.id_train_iter)
 
@@ -129,56 +150,98 @@ class FTTTAPostprocessor(TTAPostprocessor):
         id_batch['conf'] = torch.tensor([np.inf for _ in id_batch['pred']]).cuda()
 
         id_list = [dict(zip(id_batch, t)) for t in zip(*id_batch.values())]
-        if epoch < epochs // 2:
-            batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-            mix_list = [dict(zip(batch, t)) for t in zip(*batch.values())]
-        else:
-            mix_list = self.update_aux_set(data, conf, pred, update=False)
+
+        batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
+        mix_list = [dict(zip(batch, t)) for t in zip(*batch.values())]
 
         # for instance you can create a minibatch_loader
 
         minibatch_loader = DataLoader([*mix_list, *id_list, *self.aux_set], shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
 
-        for batch in minibatch_loader:
+        _register_time('batch-done', epoch, since='start-FT')
+
+        if epoch == 0:
+            self._clipped_grad = 0
+            self._grad = 0
+
+        t_mb = []
+        for i, batch in enumerate(minibatch_loader):
+
+            _register_time('start-mb', (epoch, i))
 
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
             conf = batch['conf'].cuda()
             where = batch['where']
 
+            if any(conf.isnan()):
+                raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
+
             count = {w: len([_ for _ in where if _ == w]) for w in set(where)}
             # print('***', count)
 
             logits, features = net(data, return_feature=True)
+            _register_time('forward', (epoch, i))
+
             original_loss = self.loss(logits, pred)
+            _register_time('orginal', (epoch, i))
+
+            # _print_time('original loss')
 
             alternate_loss = self.alternate_loss(logits=logits, features=features,
                                                  labels=pred, net=net)
+            _register_time('alternate', (epoch, i))
+
+            # _print_time('alternate_loss loss')
 
             # loss_weights of size 2 * batch_size
-            loss_weights = torch.tensor([self.loss_weights(*p)
-                                         for p in zip(data, logits, features, pred, where)]).T.cuda()
+            p_ = zip(data, logits, features, pred, conf, where)
+            w_loss = torch.tensor([self.loss_weights(*p, epoch, epochs)
+                                   for p in p_]).T.cuda()
 
-            # weights_where = [*zip(where, loss_weights[0].cpu().numpy(),
-            #                       loss_weights[1].cpu().numpy())]
+            # if not i:
+            #     weights_where = [*zip(where, w_loss[0].cpu().numpy(),
+            #                           w_loss[1].cpu().numpy())]
 
-            # print(' '.join(map(lambda t: '{}: {:.1f} / {:.1f}'.format(*t), weights_where[:10])))
-            # means = ''
-            # for w in ('aux', 'mix', 'id'):
+            #     print(' '.join(map(lambda t: '{}: {:.1f} / {:.1f}'.format(*t), weights_where[:10])))
+            #     means = ''
+            #     for w in ('aux', 'mix', 'id'):
 
-            #     if w in where:
-            #         i = [_ == w for _ in where]
+            #         if w in where:
+            #             i = [_ == w for _ in where]
 
-            #         means += '{:4}: '.format(w)
-            #         means += 'loss: {:.2f}+{:.2f} conf {:.2f}: --  '.format(original_loss[i].mean(),
-            #                                                                 alternate_loss[i].mean())
+            #             means += '{:4}: '.format(w)
+            #             means += 'loss: {:.2f}+{:.2f}: --  '.format(original_loss[i].mean(),
+            #                                                         alternate_loss[i].mean())
 
-            # print(means)
+            #     print(means)
 
             self.optimizer.zero_grad()
 
-            loss = (torch.vstack([original_loss, alternate_loss]) * loss_weights).sum()
+            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean()
+
+            # _print_time('weight loss')
 
             loss.backward()
+
+            # _print_time('backward')
+
+            grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
+            # if grad_norm > 200:
+            #     self._clipped_grad += 1
+            # self._grad += 1
             self.optimizer.step()
+
+            t_mb.append(time() - t0_mb)
+
+        t_FT = time()
+
+        t_FT -= t0_FT
+
+        t_mb_mean = np.mean(t_mb) * 1000
+        t_mb_std = np.std(t_mb) * 1000
+
+        t_pre = (t_FT - np.sum(t_mb)) * 1000
+
+        print(f'FT = {t_FT:.3f}s = {len(t_mb)} * ({t_mb_mean:.1f}+-{t_mb_std:.1f}ms) + {t_pre:.1f}ms')
