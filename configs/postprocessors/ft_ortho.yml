@@ -5,5 +5,5 @@ postprocessor:
   postprocessor_args:
     lr: 5.0e-4 
     wd: 5.0e-4
-    beta: 1.0
-    aux_threshold: -2.
+    beta: 2.5e-2
+    aux_threshold: 0.

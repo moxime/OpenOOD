@@ -75,19 +75,24 @@ class FTTTAPostprocessor(TTAPostprocessor):
         _, pred = torch.max(score, dim=1)
         self.chunk_predicted_labels = pred
 
-    def update_aux_set(self, data, conf, pred, epoch=0, **kw):
+    def update_aux_set(self, data, conf, pred, update=True):
 
-        n_aux = 0
+        # if epoch not in (epochs // 2, epochs):
+        #     return None
+
+        added = []
         for x, s, y in zip(data, conf, pred):
 
             if s < self.aux_threshold:
-                self.aux_set.append(dict(data=x, pred=y, conf=s, where='aux'))
-                n_aux += 1
+                added.append(dict(data=x, pred=y, conf=s, where='aux'))
 
-            if len(self.aux_set) > self.auxset_size:
-                self.aux_set.pop(0)
+        if update:
+            for _ in added:
+                self.aux_set.append(_)
+                if len(self.aux_set) > self.auxset_size:
+                    self.aux_set.pop(0)
 
-        return n_aux
+        return added
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):
@@ -103,7 +108,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return pred, conf
 
-    def finetune(self, net, data, conf, pred, epoch=0):
+    def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done after postprocess (that way you can
         retrieve results before any finetuning ; that's why
         postprocess is done epochs+1 times, to benefit from n=epochs
@@ -124,10 +129,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         id_batch['conf'] = torch.tensor([np.inf for _ in id_batch['pred']]).cuda()
 
         id_list = [dict(zip(id_batch, t)) for t in zip(*id_batch.values())]
-
-        batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-
-        mix_list = [dict(zip(batch, t)) for t in zip(*batch.values())]
+        if epoch < epochs // 2:
+            batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
+            mix_list = [dict(zip(batch, t)) for t in zip(*batch.values())]
+        else:
+            mix_list = self.update_aux_set(data, conf, pred, update=False)
 
         # for instance you can create a minibatch_loader
 
