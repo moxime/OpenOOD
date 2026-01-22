@@ -39,8 +39,8 @@ class TTAPostprocessor(BasePostprocessor):
         q1 = conf.quantile(0.25)
         q2 = conf.quantile(0.5)
         q3 = conf.quantile(0.75)
-        return (f'aux: {n_aux}(+{delta_aux}) [{epoch}/{epochs}]'
-                f' conf: {min_conf:.3f} [{q1:.3f} -- {q2:.3f} -- {q3:.3f}] {max_conf:.3f}')
+        return (f'aux: {n_aux} (+{delta_aux}) [{epoch}/{epochs}]'
+                f' conf: <{min_conf:.3f} --[{q1:.3f} | {q2:.3f} | {q3:.3f}]-- {max_conf:.3f}>')
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
@@ -113,7 +113,7 @@ class TTAPostprocessor(BasePostprocessor):
         finally:
             self._finetune_mode(net, False)
 
-    def finetune(self, net, data, conf, pred, epoch=0):
+    def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done after postprocess (that way you can
         retrieve results before any finetuning ; that's why
         postprocess is done epochs+1 times, to benefit from n=epochs
@@ -139,6 +139,7 @@ class TTAPostprocessor(BasePostprocessor):
                             dynamic_ncols=True,
                             disable=not progress or not comm.is_main_process())
         num_chunk = 0
+        delta_aux = '--'
         for chunk in progress_bar:
             if (num_chunk > self.debug * len(data_loader)) and self.debug:
                 break
@@ -146,10 +147,17 @@ class TTAPostprocessor(BasePostprocessor):
             data = chunk['data'].cuda()
             label = chunk['label'].cuda()
             self.new_chunk(net, data)
+
             for epoch in range(epochs+1):
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
-                delta_aux = self.update_aux_set(data, conf, pred, epoch=epoch)
+
+                if epoch < epochs:
+                    with self.finetune_mode(net):
+                        self.finetune(net, data, conf, pred, epoch=epoch, epochs=epochs)
+                else:
+                    delta_aux = len(self.update_aux_set(data, conf, pred))
+
                 progress_bar.set_postfix_str(self.add_to_progress_bar(data,
                                                                       conf,
                                                                       pred,
@@ -157,10 +165,6 @@ class TTAPostprocessor(BasePostprocessor):
                                                                       num_chunk,
                                                                       epoch,
                                                                       epochs))
-
-                if epoch < epochs:
-                    with self.finetune_mode(net):
-                        self.finetune(net, data, conf, pred, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
