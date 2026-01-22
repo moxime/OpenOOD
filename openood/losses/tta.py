@@ -19,4 +19,4 @@ def uniform_ce(logits, **kw):
                 -output.mean(-1) + output.logsumexp(-1)
 
         """
-    return -logits.mean() + logits.logsumexp(-1).mean()
+    return -logits.mean(-1) + logits.logsumexp(-1)
