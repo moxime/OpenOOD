@@ -21,9 +21,9 @@ class TTAPostprocessor(BasePostprocessor):
                                                         self.config.ood_dataset.batch_size)
 
         if self.config.postprocessor.get('reset_network', True):
-            self.reset_net_at_chunk = config.network.checkpoint
+            self._reset_net_at_chunk = config.network.checkpoint
         else:
-            self.reset_net_at_chunk = None
+            self._reset_net_at_chunk = None
 
         self.debug = config.debug
 
@@ -49,8 +49,8 @@ class TTAPostprocessor(BasePostprocessor):
         it will do the same that if you start with if epoch==0 in postprocess
         """
 
-        if self.reset_net_at_chunk:
-            net.load_state_dict(torch.load(self.reset_net_at_chunk))
+        if self._reset_net_at_chunk:
+            net.load_state_dict(torch.load(self._reset_net_at_chunk))
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):

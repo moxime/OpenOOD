@@ -6,4 +6,4 @@ postprocessor:
     temperature: 100
     lr: 5.0e-4 
     wd: 5.0e-4
-    alpha: 0.2
+    beta: 0.2

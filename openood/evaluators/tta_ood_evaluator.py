@@ -37,11 +37,6 @@ class TTAOODEvaluator(OODEvaluator):
             self.ood_period = 0.
             print('ood_period not defined, set to 0')
 
-        try:
-            self.reset_network = config.postprocessor.reset_network
-        except AttributeError:
-            self.reset_network = True
-
     def eval_ood(self,
                  net: nn.Module,
                  id_ood_data_loaders: Dict[str, Dict[str, DataLoader]],
