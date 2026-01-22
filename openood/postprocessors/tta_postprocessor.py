@@ -25,17 +25,22 @@ class TTAPostprocessor(BasePostprocessor):
         else:
             self._reset_net_at_chunk = None
 
+        self.chunk_size = self.config.pipeline.chunk_size
+
         self.debug = config.debug
 
-    def add_to_progress_bar(self, data, conf, pred, num_chunk, epoch, epochs):
+    def add_to_progress_bar(self, data, conf, pred, delta_aux, num_chunk, epoch, epochs):
 
         n_aux = len(self.aux_set)
         r = (conf < 0).float().mean()
+
+        min_conf = conf.min()
+        max_conf = conf.max()
         q1 = conf.quantile(0.25)
         q2 = conf.quantile(0.5)
         q3 = conf.quantile(0.75)
-        return (f'aux: {n_aux} [{epoch}/{epochs}] r={r:.1%}'
-                f' conf: [{q1:.3f} -- {q2:.3f} -- {q3:.3f}]')
+        return (f'aux: {n_aux}(+{delta_aux}) [{epoch}/{epochs}]'
+                f' conf: {min_conf:.3f} [{q1:.3f} -- {q2:.3f} -- {q3:.3f}] {max_conf:.3f}')
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
@@ -63,6 +68,7 @@ class TTAPostprocessor(BasePostprocessor):
         {'data': x, 'conf': conf, 'pred': pred, 'where': 'aux'}
 
         """
+        return 0
         pass
 
     def new_chunk(self, net, data):
@@ -143,14 +149,14 @@ class TTAPostprocessor(BasePostprocessor):
             for epoch in range(epochs+1):
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
+                delta_aux = self.update_aux_set(data, conf, pred, epoch=epoch)
                 progress_bar.set_postfix_str(self.add_to_progress_bar(data,
                                                                       conf,
                                                                       pred,
+                                                                      delta_aux,
                                                                       num_chunk,
                                                                       epoch,
                                                                       epochs))
-
-                self.update_aux_set(data, conf, pred, epoch=epoch)
 
                 if epoch < epochs:
                     with self.finetune_mode(net):

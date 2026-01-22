@@ -20,9 +20,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.lr = self.args.lr
         self.wd = self.args.wd
         self.beta = self.args.beta
+        self.auxset_size = self.args.get('auxset_size', self.chunk_size)
+        self.aux_threshold = self.args.get('aux_threshold', 0)
 
-        self.auxset_size = self.args.get('auxset_size',
-                                         self.config.pipeline.chunk_size)
+        print(f'*** params lr={self.lr} beta={self.beta} aux thr={self.aux_threshold}')
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
@@ -30,10 +31,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().setup(net, id_loader_dict, ood_loader_dict)
 
         self.id_train_loader = DataLoader(id_loader_dict['train'].dataset,
-                                          batch_size=self.batch_size, shuffle=True)
+                                          batch_size=self.chunk_size, shuffle=True)
 
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
-        self.loss = nn.CrossEntropyLoss()
+        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         self.setup_flag = True
 
@@ -76,26 +77,31 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
     def update_aux_set(self, data, conf, pred, epoch=0, **kw):
 
+        n_aux = 0
         for x, s, y in zip(data, conf, pred):
 
-            if s < 0:
-                self.aux_set.append(dict(data=x, pred=y, conf=s))
+            if s < self.aux_threshold:
+                self.aux_set.append(dict(data=x, pred=y, conf=s, where='aux'))
+                n_aux += 1
 
             if len(self.aux_set) > self.auxset_size:
                 self.aux_set.pop(0)
+
+        return n_aux
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):
         """ postprocess is done for each "chunk" of data at each epoch
         """
 
-        # print('*** postprocess on epoch', epoch)
+        pred = self.chunk_predicted_labels
+
         output = net(data)
         score = torch.softmax(output, dim=1)
 
-        conf = torch.gather(score, -1, self.chunk_predicted_labels.unsqueeze(-1)).squeeze(-1)
+        conf = torch.gather(score, -1, pred.unsqueeze(-1)).squeeze(-1)
 
-        return self.chunk_predicted_labels, conf
+        return pred, conf
 
     def finetune(self, net, data, conf, pred, epoch=0):
         """finetune is done after postprocess (that way you can
@@ -135,7 +141,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             conf = batch['conf'].cuda()
             where = batch['where']
 
-            # count = {w: len([_ == w for _ in where]) for w in set(where)}
+            count = {w: len([_ for _ in where if _ == w]) for w in set(where)}
             # print('***', count)
 
             logits, features = net(data, return_feature=True)
@@ -148,7 +154,24 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss_weights = torch.tensor([self.loss_weights(*p)
                                          for p in zip(data, logits, features, pred, where)]).T.cuda()
 
+            # weights_where = [*zip(where, loss_weights[0].cpu().numpy(),
+            #                       loss_weights[1].cpu().numpy())]
+
+            # print(' '.join(map(lambda t: '{}: {:.1f} / {:.1f}'.format(*t), weights_where[:10])))
+            # means = ''
+            # for w in ('aux', 'mix', 'id'):
+
+            #     if w in where:
+            #         i = [_ == w for _ in where]
+
+            #         means += '{:4}: '.format(w)
+            #         means += 'loss: {:.2f}+{:.2f} conf {:.2f}: --  '.format(original_loss[i].mean(),
+            #                                                                 alternate_loss[i].mean())
+
+            # print(means)
+
             self.optimizer.zero_grad()
+
             loss = (torch.vstack([original_loss, alternate_loss]) * loss_weights).sum()
 
             loss.backward()

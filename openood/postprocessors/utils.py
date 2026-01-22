@@ -47,6 +47,7 @@ from .neco_postprocessor import NeCOPostprocessor
 from .tta_postprocessor import TTAPostprocessor
 from .debug_tta_postprocessor import DebugTTAPostprocessor
 from .ft_tta_postprocessor import FTTTAPostprocessor
+from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
 
 
 def get_postprocessor(config: Config):
@@ -97,7 +98,8 @@ def get_postprocessor(config: Config):
         'neco': NeCOPostprocessor,
         'tta': TTAPostprocessor,
         'debug': DebugTTAPostprocessor,
-        'ft': FTTTAPostprocessor
+        'ft': FTTTAPostprocessor,
+        'ft_ortho': OrthoTTAPostprocessor
     }
 
     return postprocessors[config.postprocessor.name](config)
