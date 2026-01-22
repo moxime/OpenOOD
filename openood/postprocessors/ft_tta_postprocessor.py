@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, BatchSampler
 from .tta_postprocessor import TTAPostprocessor
 
 from openood.losses import uniform_ce
+import logging
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
@@ -19,6 +20,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.lr = self.args.lr
         self.wd = self.args.wd
         self.beta = self.args.beta
+
+        self.auxset_size = self.args.get('auxset_size',
+                                         self.config.pipeline.chunk_size)
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
@@ -33,15 +37,26 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         self.setup_flag = True
 
+        self.aux_set = []
+
     def alternate_loss(self, logits, features, labels, net):
 
         return uniform_ce(logits)
+
+    def loss_weights(self, x, logit, feature, label, where):
+        """ return loss_weight, alternate_loss_weight for sample x """
+
+        if where == 'id':
+            return (1., 0.)
+
+        if where in ('aux', 'mix'):
+            return (0., self.beta)
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
 
         """
-        return
+        super().reset(net, data_loader)
 
     def new_chunk(self, net, data):
 
@@ -59,6 +74,16 @@ class FTTTAPostprocessor(TTAPostprocessor):
         _, pred = torch.max(score, dim=1)
         self.chunk_predicted_labels = pred
 
+    def update_aux_set(self, data, conf, pred, epoch=0, **kw):
+
+        for x, s, y in zip(data, conf, pred):
+
+            if s < 0:
+                self.aux_set.append(dict(data=x, pred=y, conf=s))
+
+            if len(self.aux_set) > self.auxset_size:
+                self.aux_set.pop(0)
+
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):
         """ postprocess is done for each "chunk" of data at each epoch
@@ -72,7 +97,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return self.chunk_predicted_labels, conf
 
-    def finetune(self, net, data, epoch=0):
+    def finetune(self, net, data, conf, pred, epoch=0):
         """finetune is done after postprocess (that way you can
         retrieve results before any finetuning ; that's why
         postprocess is done epochs+1 times, to benefit from n=epochs
@@ -80,33 +105,48 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
 
-        beta = self.beta
+        try:
+            id_batch = next(self.id_train_iter)
+
+        except StopIteration:
+            self.id_train_iter = iter(self.id_train_loader)
+            id_batch = next(self.id_train_iter)
+
+        id_batch = {_: id_batch[_].cuda() for _ in ('label', 'data')}
+        id_batch['pred'] = id_batch.pop('label')
+        id_batch['where'] = ['id' for _ in id_batch['pred']]
+        id_batch['conf'] = torch.tensor([np.inf for _ in id_batch['pred']]).cuda()
+
+        id_list = [dict(zip(id_batch, t)) for t in zip(*id_batch.values())]
+
+        batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
+
+        mix_list = [dict(zip(batch, t)) for t in zip(*batch.values())]
 
         # for instance you can create a minibatch_loader
-        minibatch_loader = DataLoader(list(zip(data, self.chunk_predicted_labels)), shuffle=True,
+
+        minibatch_loader = DataLoader([*mix_list, *id_list, *self.aux_set], shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
 
-        for mix_batch in minibatch_loader:
+        for batch in minibatch_loader:
 
-            try:
-                id_batch = next(self.id_train_iter)
+            data = batch['data'].cuda()
+            pred = batch['pred'].cuda()
+            conf = batch['conf'].cuda()
+            where = batch['where']
 
-            except StopIteration:
-                self.id_train_iter = iter(self.id_train_loader)
-                id_batch = next(self.id_train_iter)
+            logits, features = net(data, return_feature=True)
+            original_loss = self.loss(logits, pred)
 
-            id_data = id_batch['data'].cuda()
-            id_label = id_batch['label'].cuda()
-            mix_data, predicted_mix_labels = mix_batch
+            alternate_loss = self.alternate_loss(logits=logits, features=features,
+                                                 labels=pred, net=net)
 
-            id_output = net(id_data)
-            mix_logits, mix_features = net(mix_data, return_feature=True)
+            # loss_weights of size 2 * batch_size
+            loss_weights = torch.tensor([self.loss_weights(*p)
+                                         for p in zip(data, logits, features, pred, where)]).T.cuda()
 
             self.optimizer.zero_grad()
-
-            loss = self.loss(id_output, id_label)
-            loss += beta*self.alternate_loss(logits=mix_logits, features=mix_features,
-                                             labels=predicted_mix_labels, net=net)
+            loss = (torch.vstack([original_loss, alternate_loss]) * loss_weights).sum()
 
             loss.backward()
             self.optimizer.step()
