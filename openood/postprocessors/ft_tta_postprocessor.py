@@ -7,6 +7,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, BatchSampler
 from .tta_postprocessor import TTAPostprocessor
 
+from openood.losses import uniform_ce
+
 
 class FTTTAPostprocessor(TTAPostprocessor):
     def __init__(self, config):
@@ -16,7 +18,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.temperature = self.args.temperature
         self.lr = self.args.lr
         self.wd = self.args.wd
-        self.alpha = self.args.alpha
+        self.beta = self.args.beta
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
@@ -28,27 +30,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
         self.loss = nn.CrossEntropyLoss()
-        self.alternate_loss = self._uniform_ce
 
         self.setup_flag = True
 
-    @staticmethod
-    def _uniform_ce(output, label, **kw):
-        """label is useless here, bu has to be in the signature of self.alternate_loss
+    def alternate_loss(self, logits, features, labels, net):
 
-
-        returns CE(unif, p(y|x)):
-
-            CE = -\frac 1 {num_class} \sum_y log p(y|x) 
-               = -output.softmax(-1).log()
-
-
-        that can be calculated as:
-                -output.mean(-1) + output.logsumexp(-1)
-
-        """
-
-        return -output.mean() + output.logsumexp(-1).mean()
+        return uniform_ce(logits)
 
     def reset(self, net, data_loader):
         """reset is done at each new "experiment" (dataset)
@@ -57,8 +44,20 @@ class FTTTAPostprocessor(TTAPostprocessor):
         return
 
     def new_chunk(self, net, data):
+
+        # in super().new_chunk, model is reset
         super().new_chunk(net, data)
+
+        # reinit id_train_tier
         self.id_train_iter = iter(self.id_train_loader)
+
+        # calculate predicted labels on chunk
+        with torch.no_grad():
+            output = net(data)
+            score = torch.softmax(output, dim=1)
+
+        _, pred = torch.max(score, dim=1)
+        self.chunk_predicted_labels = pred
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0):
@@ -69,11 +68,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         output = net(data)
         score = torch.softmax(output, dim=1)
 
-        if epoch == 0:
-            conf, pred = torch.max(score, dim=1)
-            self.chunk_predicted_labels = pred
-        else:
-            conf = torch.gather(score, -1, self.chunk_predicted_labels.unsqueeze(-1)).squeeze(-1)
+        conf = torch.gather(score, -1, self.chunk_predicted_labels.unsqueeze(-1)).squeeze(-1)
 
         return self.chunk_predicted_labels, conf
 
@@ -85,19 +80,13 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
 
-        for p in net.parameters():
-            p.requires_grad = False
-
-        for p in net.fc.parameters():
-            p.requires_grad = True
-
-        alpha = self.alpha
+        beta = self.beta
 
         # for instance you can create a minibatch_loader
         minibatch_loader = DataLoader(list(zip(data, self.chunk_predicted_labels)), shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
 
-        for unknown_batch in minibatch_loader:
+        for mix_batch in minibatch_loader:
 
             try:
                 id_batch = next(self.id_train_iter)
@@ -108,15 +97,16 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             id_data = id_batch['data'].cuda()
             id_label = id_batch['label'].cuda()
-            unknown_data, unknown_label = unknown_batch
+            mix_data, predicted_mix_labels = mix_batch
 
             id_output = net(id_data)
-            unknown_output = net(unknown_data)
+            mix_logits, mix_features = net(mix_data, return_feature=True)
 
             self.optimizer.zero_grad()
 
             loss = self.loss(id_output, id_label)
-            loss += alpha*self.alternate_loss(unknown_output, unknown_label)
+            loss += beta*self.alternate_loss(logits=mix_logits, features=mix_features,
+                                             labels=predicted_mix_labels, net=net)
 
             loss.backward()
             self.optimizer.step()
