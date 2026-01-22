@@ -1,9 +1,9 @@
 postprocessor:
   name: ft_ortho
   APS_mode: False
-  tta_epochs: 20
+  tta_epochs: 200
   postprocessor_args:
     lr: 5.0e-4 
     wd: 5.0e-4
-    beta: 2.5e-2
-    aux_threshold: 0.
+    beta: 1
+    aux_threshold: -1.

@@ -11,6 +11,8 @@ import openood.utils.comm as comm
 
 from .base_postprocessor import BasePostprocessor
 
+import time
+
 
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
@@ -39,8 +41,16 @@ class TTAPostprocessor(BasePostprocessor):
         q1 = conf.quantile(0.25)
         q2 = conf.quantile(0.5)
         q3 = conf.quantile(0.75)
-        return (f'aux: {n_aux} (+{delta_aux}) [{epoch}/{epochs}]'
-                f' conf: <{min_conf:.3f} --[{q1:.3f} | {q2:.3f} | {q3:.3f}]-- {max_conf:.3f}>')
+
+        s = (f'aux: {n_aux} (+{delta_aux}) [{epoch}/{epochs}]'
+             f' conf: < {min_conf:6.3f} --[{q1:6.3f} | {q2:6.3f} | {q3:6.3f}]-- {max_conf:5.3f} >')
+
+        try:
+            s = '\{}\ '.format(self._clipped_grad) + s
+        except AttributeError:
+            pass
+
+        return s
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
@@ -68,8 +78,7 @@ class TTAPostprocessor(BasePostprocessor):
         {'data': x, 'conf': conf, 'pred': pred, 'where': 'aux'}
 
         """
-        return 0
-        pass
+        return []
 
     def new_chunk(self, net, data):
         """
@@ -151,10 +160,12 @@ class TTAPostprocessor(BasePostprocessor):
             for epoch in range(epochs+1):
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
+                time1 = time.time()
 
                 if epoch < epochs:
                     with self.finetune_mode(net):
                         self.finetune(net, data, conf, pred, epoch=epoch, epochs=epochs)
+
                 else:
                     delta_aux = len(self.update_aux_set(data, conf, pred))
 
@@ -169,7 +180,7 @@ class TTAPostprocessor(BasePostprocessor):
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
-            # convert values into numpy array
+        # convert values into numpy array
         for _ in outputs_by_epochs:
             for epoch in outputs_by_epochs[_]:
                 outputs_by_epochs[_][epoch] = torch.cat(outputs_by_epochs[_][epoch]).numpy().astype(
