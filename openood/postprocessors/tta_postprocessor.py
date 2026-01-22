@@ -32,6 +32,8 @@ class TTAPostprocessor(BasePostprocessor):
         training ind dataset
 
         """
+
+        self.aux_set = []
         pass
 
     def reset(self, net, data_loader):
@@ -39,6 +41,16 @@ class TTAPostprocessor(BasePostprocessor):
 
         for instance, if psotprocessor manages an history dict, this
         might be the place to do it (by overriding this method)
+
+        """
+        pass
+
+    def update_aux_set(self, data, conf, pred, epoch=0, **kw):
+        """ add x from data to aux_set, depending on conf and predicted label
+
+        each element is added as a dictionary
+
+        {'data': x, 'conf': conf, 'pred': pred, 'where': 'aux'} 
 
         """
         pass
@@ -85,7 +97,7 @@ class TTAPostprocessor(BasePostprocessor):
         finally:
             self._finetune_mode(net, False)
 
-    def finetune(self, net, data, epoch=0):
+    def finetune(self, net, data, conf, pred, epoch=0):
         """finetune is done after postprocess (that way you can
         retrieve results before any finetuning ; that's why
         postprocess is done epochs+1 times, to benefit from n=epochs
@@ -94,7 +106,6 @@ class TTAPostprocessor(BasePostprocessor):
         """
 
         # for instance you can create a minibatch_loader
-        minibatch_loader = DataLoader(data, shuffle=True, batch_size=self.batch_size)
         # ...
         pass
 
@@ -125,9 +136,12 @@ class TTAPostprocessor(BasePostprocessor):
                 progress_bar.set_postfix_str('{}:{}'.format(num_chunk + 1, epoch))
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
+
+                self.update_aux_set(data, conf, pred, epoch=epoch)
+
                 if epoch < epochs:
                     with self.finetune_mode(net):
-                        self.finetune(net, data, epoch=epoch)
+                        self.finetune(net, data, conf, pred, epoch=epoch)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
