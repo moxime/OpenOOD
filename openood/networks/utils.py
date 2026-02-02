@@ -30,6 +30,7 @@ from .resnet18_32x32 import ResNet18_32x32
 from .resnet18_64x64 import ResNet18_64x64
 from .resnet18_224x224 import ResNet18_224x224
 from .resnet18_256x256 import ResNet18_256x256
+from .resnet20_32x32 import ResNet20_32x32
 from .resnet50 import ResNet50
 from .rot_net import RotNet
 from .udg_net import UDGNet
@@ -46,6 +47,9 @@ def get_network(network_config):
 
     if network_config.name == 'resnet18_32x32':
         net = ResNet18_32x32(num_classes=num_classes)
+
+    if network_config.name == 'resnet20_32x32':
+        net = ResNet20_32x32(num_classes=num_classes)
 
     elif network_config.name == 'resnet18_256x256':
         net = ResNet18_256x256(num_classes=num_classes)
