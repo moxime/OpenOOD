@@ -9,24 +9,7 @@ from .tta_postprocessor import TTAPostprocessor
 
 from openood.losses import uniform_ce
 import logging
-from time import time
-
-
-time_register = {}
-
-
-def _register_time(k, i, t=None, reg=time_register, since=None):
-
-    if t is None:
-        t = time.time()
-
-    if k not in reg:
-        reg[k] = {}
-
-    reg[k][i]   = {'t': t}
-
-    if since is not None:
-        reg[k][i]['dt'] = t - reg[since][i]['t']
+import time
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
@@ -135,8 +118,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
 
-        _register_time('start-FT', epoch)
-
         try:
             id_batch = next(self.id_train_iter)
 
@@ -159,16 +140,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         minibatch_loader = DataLoader([*mix_list, *id_list, *self.aux_set], shuffle=True,
                                       batch_size=self.batch_size, drop_last=False)
 
-        _register_time('batch-done', epoch, since='start-FT')
-
         if epoch == 0:
             self._clipped_grad = 0
             self._grad = 0
 
-        t_mb = []
         for i, batch in enumerate(minibatch_loader):
-
-            _register_time('start-mb', (epoch, i))
 
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
@@ -182,18 +158,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
             # print('***', count)
 
             logits, features = net(data, return_feature=True)
-            _register_time('forward', (epoch, i))
 
             original_loss = self.loss(logits, pred)
-            _register_time('orginal', (epoch, i))
-
-            # _print_time('original loss')
 
             alternate_loss = self.alternate_loss(logits=logits, features=features,
                                                  labels=pred, net=net)
-            _register_time('alternate', (epoch, i))
-
-            # _print_time('alternate_loss loss')
 
             # loss_weights of size 2 * batch_size
             p_ = zip(data, logits, features, pred, conf, where)
@@ -221,27 +190,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean()
 
-            # _print_time('weight loss')
-
             loss.backward()
-
-            # _print_time('backward')
 
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
             # if grad_norm > 200:
             #     self._clipped_grad += 1
             # self._grad += 1
             self.optimizer.step()
-
-            t_mb.append(time() - t0_mb)
-
-        t_FT = time()
-
-        t_FT -= t0_FT
-
-        t_mb_mean = np.mean(t_mb) * 1000
-        t_mb_std = np.std(t_mb) * 1000
-
-        t_pre = (t_FT - np.sum(t_mb)) * 1000
-
-        print(f'FT = {t_FT:.3f}s = {len(t_mb)} * ({t_mb_mean:.1f}+-{t_mb_std:.1f}ms) + {t_pre:.1f}ms')
