@@ -29,7 +29,7 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
 
     def alternate_loss(self, logits, features, labels, net):
 
-        bias = net.fc.bias
+        bias = net.get_fc_layer().bias
 
         wz = logits - bias
 
@@ -40,7 +40,7 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
         """ postprocess is done for each "chunk" of data at each epoch
         """
 
-        bias = net.fc.bias
+        bias = net.get_fc_layer().bias
         logits, features = net(data, return_feature=True)
         softmax_probs = torch.softmax(logits, dim=1)
 

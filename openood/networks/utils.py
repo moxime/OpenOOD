@@ -30,7 +30,7 @@ from .resnet18_32x32 import ResNet18_32x32
 from .resnet18_64x64 import ResNet18_64x64
 from .resnet18_224x224 import ResNet18_224x224
 from .resnet18_256x256 import ResNet18_256x256
-from .resnet20_32x32 import ResNet20_32x32
+from .resnet_c10 import resnet20
 from .resnet50 import ResNet50
 from .rot_net import RotNet
 from .udg_net import UDGNet
@@ -49,7 +49,7 @@ def get_network(network_config):
         net = ResNet18_32x32(num_classes=num_classes)
 
     if network_config.name == 'resnet20_32x32':
-        net = ResNet20_32x32(num_classes=num_classes)
+        net = resnet20(num_classes=num_classes)
 
     elif network_config.name == 'resnet18_256x256':
         net = ResNet18_256x256(num_classes=num_classes)
@@ -446,6 +446,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch', type=int, nargs='+', default=[32, 64, 128])
     parser.add_argument('-N', type=int, default=1000)
     parser.add_argument('--device', default='cuda')
+    parser.add_argument('--ckpt')
 
     args = parser.parse_args()
 
@@ -455,7 +456,7 @@ if __name__ == '__main__':
 
         pass
 
-    def time_backprop(*batch_sizes, net_name='resnet18_32x32', Nt=1000, device='cuda'):
+    def time_backprop(*batch_sizes, net_name='resnet18_32x32', Nt=1000, device='cuda', ckpt=None):
 
         device = device if torch.cuda.is_available() else 'cpu'
         net_config = BogusConfig()
@@ -470,6 +471,11 @@ if __name__ == '__main__':
         ce = torch.nn.CrossEntropyLoss()
 
         net.train()
+
+        if ckpt:
+            print('loading ckpt from', ckpt, end='... ', flush=True)
+            net.load_state_dict(torch.load(ckpt))
+            print('done')
 
         optim = torch.optim.SGD(net.parameters(), lr=1e-4)
 
@@ -507,4 +513,4 @@ if __name__ == '__main__':
                                                                                t_unit / batch_size * 1e6),
                       end=' ' * 10)
 
-    time_backprop(*args.batch, net_name=args.net, Nt=args.N, device=args.device)
+    time_backprop(*args.batch, net_name=args.net, Nt=args.N, device=args.device, ckpt=args.ckpt)
