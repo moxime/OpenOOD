@@ -10,8 +10,7 @@ ood_dataset:
   batch_size: 32 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
   shuffle: False
 
-  split_names: [val, nearood, farood, mixture]
-
+  split_names: [val, nearood, farood, mixture, aux]
 
   val:
     data_dir: ./data/images_classic/
@@ -45,13 +44,13 @@ ood_dataset:
     datasets: [cifar100_mix, tin_mix]
     cifar100_mix:
       sets: [cifar100, mnist, texture]
-      padding: [tin] # padding not used yet (TBD)
+      ext_padding: [tin] # padding not used yet (TBD)
     tin_mix:
       sets: [tin, svhn, places365]
-      padding: [cifar100] # padding not used yet
+      ext_padding: [cifar100] # padding not used yet
   
   aux:
-    datasets: [ind]
+    datasets: [ind, cifar100_mix, tin_mix]
     ind:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/train_cifar10.txt
