@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 
 from .base_postprocessor import BasePostprocessor
 from .tta_postprocessor import TTAPostprocessor
+from .ft_tta_postprocessor import FTTTAPostprocessor
 from .info import num_classes_dict
 import openood.utils.comm as comm
 
@@ -50,12 +51,10 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(TTAPostprocessor):
+class DebugTTAPostprocessor(FTTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
-        self.args_dict = self.config.postprocessor.postprocessor_sweep
-        self.args = self.config.postprocessor.postprocessor_args
         self.temperature = self.args.temperature
         self.bogus = self.args.bogus
 
@@ -71,3 +70,16 @@ class DebugTTAPostprocessor(TTAPostprocessor):
         _unfold_(ood_loader_dict)
 
         self.setup_flag = True
+
+    def update_pad_set(self, data, conf, pred, where='self', **kw):
+
+        n = super().update_pad_set(data, conf, pred, where=where, **kw)
+        # print('*** added {} pad samples from {}'.format(n, where))
+        return n
+
+    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
+        w = super().loss_weights(x, logit, feature, label, conf, where, epoch=epoch, epochs=epochs)
+
+        # if epoch in (epochs // 3, 2 * epochs // 3):
+        #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
+        return w

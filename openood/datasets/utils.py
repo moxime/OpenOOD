@@ -97,8 +97,6 @@ def get_tta_ood_dataloader(config: Config):
     ood_config = config.ood_dataset
     # specify custom dataset class
     CustomDataset = eval(ood_config.dataset_class)
-    ood_dict = {}
-    dataloader_dict = {}
     ood_period = config.evaluator.ood_period
     chunk_size = config.pipeline.chunk_size
     ood_ratio = config.pipeline.ood_ratio
@@ -112,9 +110,15 @@ def get_tta_ood_dataloader(config: Config):
     ind_dataset = get_dataloader(config)['test'].dataset
     ind_dataset = MixtureDataset(**{config.dataset.name: ind_dataset})
     IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
+    pad_sizes = {_: int(config.postprocessor.padding.get(_, 0) * chunk_size)
+                 for _ in ('id', 'ood')}
+
+    ood_dict = {}
+    dataloader_dict = {'padding': {'id': DataLoader(get_dataloader(config)['train'].dataset,
+                                                    shuffle=True,
+                                                    batch_size=pad_sizes['id'])}}
 
     for split in ood_config.split_names:
-        print('*****', split, '*****')
         split_config = ood_config[split]
         preprocessor = get_preprocessor(config, split)
         data_aux_preprocessor = TestStandardPreProcessor(config)
@@ -136,6 +140,20 @@ def get_tta_ood_dataloader(config: Config):
             dataloader_dict[split] = dataloader
             continue
 
+        if split == 'aux':
+            for dataset_name in split_config.datasets:
+                dataset_config = split_config[dataset_name]
+                dataset = CustomDataset(
+                    name=ood_config.name + '_' + split,
+                    imglist_pth=dataset_config.imglist_pth,
+                    data_dir=dataset_config.data_dir,
+                    num_classes=ood_config.num_classes,
+                    preprocessor=preprocessor,
+                    data_aux_preprocessor=data_aux_preprocessor)
+
+                ood_dict[dataset_name] = dataset
+            continue
+
         if split == 'mixture':
             sub_dataloader_dict = {}
             for dataset_name in split_config.datasets:
@@ -145,12 +163,18 @@ def get_tta_ood_dataloader(config: Config):
                                         batch_size=chunk_size,
                                         sampler=IOSampler(dataset))
                 sub_dataloader_dict[dataset_name] = dataloader
+                padding_names = split_config[dataset_name].padding
+                if padding_names:
+                    padding_dataset = MixtureDataset(**{_: ood_dict[_] for _ in padding_names})
+                    padding_dl = DataLoader(padding_dataset,
+                                            shuffle=True,
+                                            batch_size=pad_sizes['ood'])
+                    dataloader_dict['padding'][dataset_name] = padding_dl
             dataloader_dict[split] = sub_dataloader_dict
             continue
 
         if split in ('nearood', 'farood'):
             # dataloaders for nearood, farood
-
             sub_dataloader_dict = {}
             for dataset_name in split_config.datasets:
                 dataset_config = split_config[dataset_name]

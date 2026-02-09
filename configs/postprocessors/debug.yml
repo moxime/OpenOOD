@@ -1,7 +1,10 @@
 postprocessor:
   name: debug
   APS_mode: False
-  tta_epochs: 2
+  ft:
+    epochs: 2
+  padding:
+    threshold: 0.5
   postprocessor_args:
     temperature: 100
     bogus: 42

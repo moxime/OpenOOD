@@ -1,4 +1,4 @@
-exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{evaluator.ood_period}'_'@{postprocessor.tta_epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
+exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{evaluator.ood_period}'_'@{postprocessor.ft.epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
 output_dir: ./results/
 save_output: True
 merge_option: default # disabled if 'save_output' is False
@@ -38,8 +38,18 @@ evaluator:
   # if ood_period is large (-1 for inf) we change ood when ood source is depleted
   ood_period: 0.
 
+
 postprocessor:
-  tta_epochs: 0
+  padding:
+    id: 1.
+    ood: 0.5
+    self: 1.
+    threshold:  # put x in pad_sef if conf <= threshold, no value will be -inf
+  ft: # defaults value for ft
+    epochs: 0
+    lr: 5.0e-4
+    wd: 5.0e-4
+
   
 recorder:
   save_scores: True

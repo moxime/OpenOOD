@@ -9,23 +9,6 @@ from .ft_tta_postprocessor import FTTTAPostprocessor
 
 
 class OrthoTTAPostprocessor(FTTTAPostprocessor):
-    def __init__(self, config):
-        super().__init__(config)
-
-    def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
-        if self.setup_flag:
-            return
-        super().setup(net, id_loader_dict, ood_loader_dict)
-
-    def reset(self, net, data_loader):
-        """reset is done at each new "experiment" (dataset)
-
-        """
-        return
-
-    def new_chunk(self, net, data):
-        super().new_chunk(net, data)
-        self.id_train_iter = iter(self.id_train_loader)
 
     def alternate_loss(self, logits, features, labels, net):
 
@@ -35,8 +18,22 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
 
         return wz.abs().mean(-1)
 
+    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
+        """ return loss_weight, alternate_loss_weight for sample x """
+
+        if where != 'mix':
+            return super().loss_weights(x, logit, feature, label, conf, where, epoch=epoch, epochs=epochs)
+
+        """ if mix :
+
+        - during first half (epoch < epoch / 2): keep every sample
+
+        - during second half: only if likely ood (conf < sb) """
+
+        return (0., self.beta if (epoch < epochs//2 or conf < self.pad_thresholds['self']) else 0.)
+
     @torch.no_grad()
-    def postprocess(self, net: nn.Module, data: Any, epoch=0):
+    def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
         """ postprocess is done for each "chunk" of data at each epoch
         """
 
@@ -44,11 +41,11 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
         logits, features = net(data, return_feature=True)
         softmax_probs = torch.softmax(logits, dim=1)
 
-        pred = self.chunk_predicted_labels
+        if pred is None:
+            _, pred = torch.max(logits, dim=1)
 
         # weight.z = logits - bias
         # 1/C * sum_y |zT.m_y| = (weight.z).abs().mean(-1)
-
         ortho_1 = (logits - bias).abs().mean(-1)
 
         prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
@@ -60,4 +57,4 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
 
         conf = prob_y.log() + ortho_1
 
-        return self.chunk_predicted_labels, conf
+        return pred, conf
