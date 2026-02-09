@@ -25,17 +25,10 @@ class TTAOODEvaluator(OODEvaluator):
             config (Config): Config file from
         """
         super(TTAOODEvaluator, self).__init__(config)
-        try:
-            self.tta_epochs = config.postprocessor.tta_epochs
-        except AttributeError:
-            self.tta_epochs = 0
+        self.tta_epochs = config.postprocessor.ft.get('epochs', 0)
 
-        try:
-            self.ood_period = config.evaluator.ood_period
-            print('ood_period set to {}'.format(self.ood_period))
-        except AttributeError:
-            self.ood_period = 0.
-            print('ood_period not defined, set to 0')
+        self.ood_period = config.evaluator.get('ood_period', 0)
+        print('ood_period set to {}'.format(self.ood_period))
 
     def eval_ood(self,
                  net: nn.Module,
@@ -80,7 +73,12 @@ class TTAOODEvaluator(OODEvaluator):
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            pred, conf, label = postprocessor.inference(net, id_ood_dl, epochs=tta_epochs)
+            padding_id_dl = id_ood_data_loaders.get('padding', {}).get('id')
+            padding_ood_dl = id_ood_data_loaders.get('padding', {}).get(dataset_name)
+            pred, conf, label = postprocessor.inference(net, id_ood_dl,
+                                                        padding_id_dl=padding_id_dl,
+                                                        padding_ood_dl=padding_ood_dl,
+                                                        epochs=tta_epochs)
 
             for epoch in pred:
                 if self.config.recorder.save_scores:

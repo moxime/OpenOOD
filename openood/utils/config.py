@@ -358,3 +358,10 @@ def init_assign(config, d):
                                         only_leaf=True):
         sub_cfg, sub_key = consume_dots(config, full_key, create_default=True)
         sub_cfg[sub_key] = value
+
+
+if __name__ == '__main__':
+
+    import sys
+
+    print(setup_config())
