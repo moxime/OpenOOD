@@ -62,6 +62,7 @@ class DebugTTAPostprocessor(TTAPostprocessor):
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return
+        super().setup(net, id_loader_dict, ood_loader_dict)
 
         print('ID LOADER DICT')
         _unfold_(id_loader_dict)

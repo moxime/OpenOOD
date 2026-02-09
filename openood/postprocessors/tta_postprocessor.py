@@ -160,7 +160,6 @@ class TTAPostprocessor(BasePostprocessor):
             for epoch in range(epochs+1):
 
                 pred, conf = self.postprocess(net, data, epoch=epoch)
-                time1 = time.time()
 
                 if epoch < epochs:
                     with self.finetune_mode(net):

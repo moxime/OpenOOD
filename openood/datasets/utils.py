@@ -114,6 +114,7 @@ def get_tta_ood_dataloader(config: Config):
     IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
 
     for split in ood_config.split_names:
+        print('*****', split, '*****')
         split_config = ood_config[split]
         preprocessor = get_preprocessor(config, split)
         data_aux_preprocessor = TestStandardPreProcessor(config)
@@ -133,8 +134,23 @@ def get_tta_ood_dataloader(config: Config):
                                     sampler=IOSampler(dataset))
 
             dataloader_dict[split] = dataloader
-        elif split != 'mixture':
-            # dataloaders for csid, nearood, farood
+            continue
+
+        if split == 'mixture':
+            sub_dataloader_dict = {}
+            for dataset_name in split_config.datasets:
+                suboods = {_: ood_dict[_] for _ in split_config[dataset_name].sets}
+                dataset = IODataset(**suboods)
+                dataloader = DataLoader(dataset,
+                                        batch_size=chunk_size,
+                                        sampler=IOSampler(dataset))
+                sub_dataloader_dict[dataset_name] = dataloader
+            dataloader_dict[split] = sub_dataloader_dict
+            continue
+
+        if split in ('nearood', 'farood'):
+            # dataloaders for nearood, farood
+
             sub_dataloader_dict = {}
             for dataset_name in split_config.datasets:
                 dataset_config = split_config[dataset_name]
@@ -154,17 +170,9 @@ def get_tta_ood_dataloader(config: Config):
                 ood_dict[dataset_name] = ood_dataset
                 sub_dataloader_dict[dataset_name] = dataloader
             dataloader_dict[split] = sub_dataloader_dict
-
+            continue
         else:
-            sub_dataloader_dict = {}
-            for dataset_name in split_config.datasets:
-                suboods = {_: ood_dict[_] for _ in split_config[dataset_name].sets}
-                dataset = IODataset(**suboods)
-                dataloader = DataLoader(dataset,
-                                        batch_size=chunk_size,
-                                        sampler=IOSampler(dataset))
-                sub_dataloader_dict[dataset_name] = dataloader
-            dataloader_dict[split] = sub_dataloader_dict
+            raise ValueError('{} split unknown'.format(split))
 
     return dataloader_dict
 
