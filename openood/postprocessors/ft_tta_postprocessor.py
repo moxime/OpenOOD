@@ -33,6 +33,22 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         self.setup_flag = True
 
+        unfreeze = self.config.postprocessor.ft.unfreeze
+        if unfreeze:
+            for _ in net.parameters():
+                _.requires_grad_(False)
+
+            for _ in net.get_fc_layer().parameters():
+                _.requires_grad_(True)
+
+        if unfreeze in ('all', 'penultimate'):
+            for name, submodule in reversed(list(net.named_children())):
+                for p in submodule.parameters():
+                    p.requires_grad_(True)
+
+                if name.lower().startswith('layer') and unfreeze == 'penultimate':
+                    break
+
     def alternate_loss(self, logits, features, labels, net):
 
         return uniform_ce(logits)
