@@ -167,7 +167,7 @@ class TTAPostprocessor(BasePostprocessor):
         # ...
         pass
 
-    def add_to_progress_bar(self, data, conf, pred, delta_pad, num_chunk, epoch, epochs):
+    def epoch_sumup(self, data, conf, pred, delta_pad, num_chunk, epoch, epochs):
 
         n_pad = len(self.pad_sets['self'])
         r = (conf < 0).float().mean()
@@ -178,7 +178,7 @@ class TTAPostprocessor(BasePostprocessor):
         q2 = conf.quantile(0.5)
         q3 = conf.quantile(0.75)
 
-        s = (f'pad: {n_pad} (+{delta_pad}) [{epoch}/{epochs}]'
+        s = (f'self pad: {n_pad} (+{delta_pad}) [{epoch}/{epochs}]'
              f' conf: < {min_conf:6.3f} --[{q1:6.3f} | {q2:6.3f} | {q3:6.3f}]-- {max_conf:5.3f} >')
 
         try:
@@ -232,13 +232,13 @@ class TTAPostprocessor(BasePostprocessor):
                     with self.finetune_mode(net):
                         self.finetune(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
-                progress_bar.set_postfix_str(self.add_to_progress_bar(data,
-                                                                      conf,
-                                                                      pred,
-                                                                      delta_self_pad,
-                                                                      num_chunk,
-                                                                      epoch,
-                                                                      epochs))
+                progress_bar.set_postfix_str(self.epoch_sumup(data,
+                                                              conf,
+                                                              pred,
+                                                              delta_self_pad,
+                                                              num_chunk,
+                                                              epoch,
+                                                              epochs))
 
             delta_self_pad = self.update_pad_set(data=data,
                                                  conf=conf,

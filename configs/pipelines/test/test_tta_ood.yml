@@ -49,6 +49,9 @@ postprocessor:
     epochs: 0
     lr: 5.0e-4
     wd: 5.0e-4
+    # unfreeze net for possible ft
+    # in all, head, penultimate
+    unfreeze: penultimate
 
   
 recorder:

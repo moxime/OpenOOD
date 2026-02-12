@@ -69,6 +69,13 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
         print('OOD LOADER DICT')
         _unfold_(ood_loader_dict)
 
+        for name, sub in net.named_children():
+
+            assert (not any(_.requires_grad for _ in sub.parameters()) or
+                    all(_.requires_grad for _ in sub.parameters()))
+
+            print('****', name, any(_.requires_grad for _ in sub.parameters()))
+
         self.setup_flag = True
 
     def update_pad_set(self, data, conf, pred, where='self', **kw):
