@@ -9,18 +9,23 @@ ood_dataset:
   dataset_class: ImglistDataset
   batch_size: 32 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
 
-  split_names: [aux, val, nearood, farood, mixture]
-
-  val:
-    data_dir: ./data/images_classic/
-    imglist_pth: ./data/benchmark_imglist/cifar10/val_tin.txt
-
-  aux:
-    datasets: [lsunr]
+  padding:
+    datasets: [lsunr, svhn]
 
     lsunr:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_lsunr.txt
+
+    svhn:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/test_svhn.txt
+
+
+  split_names: [val, nearood, farood, mixture]
+
+  val:
+    data_dir: ./data/images_classic/
+    imglist_pth: ./data/benchmark_imglist/cifar10/val_tin.txt
       
     
   nearood:
@@ -60,9 +65,7 @@ ood_dataset:
 
     cifar100_mix:
       sets: [cifar100, mnist, texture]
-      padding: [lsunr] # padding
 
     tin_mix:
       sets: [tin, svhn, places365]
-      padding: [lsunr] # padding 
   
