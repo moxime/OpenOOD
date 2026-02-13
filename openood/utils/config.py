@@ -238,6 +238,9 @@ class Config(dict):
                     'False': False,
                     '0': False,
                 }[value_str]
+            elif value_type is list:
+                vtype = type(self[key][0])
+                self[key] = list(map(vtype, value_str.split()))
             else:
                 self[key] = value_type(value_str)
 
