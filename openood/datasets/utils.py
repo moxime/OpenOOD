@@ -9,7 +9,7 @@ from openood.preprocessors.test_preprocessor import TestStandardPreProcessor
 from openood.preprocessors.utils import get_preprocessor
 from openood.utils.config import Config
 
-from .mixture_dataset import IDOODDataset, IDOODSampler, MixtureDataset
+from .mixture_dataset import IDOODDataset, IDOODSampler, MixtureDataset, MixtureTimeSampler
 from .feature_dataset import FeatDataset
 from .imglist_dataset import ImglistDataset
 from .imglist_augmix_dataset import ImglistAugMixDataset
@@ -134,7 +134,9 @@ def get_tta_ood_dataloader(config: Config):
             padding_subssets[dataset_name] = dataset
 
         padding_set = MixtureDataset(**padding_subssets)
-        dataloader_dict['padding']['ood'] = DataLoader(padding_set, shuffle=True,
+        dataloader_dict['padding']['ood'] = DataLoader(padding_set,
+                                                       sampler=MixtureTimeSampler(
+                                                           padding_set, period=1),
                                                        batch_size=pad_sizes['ood'])
 
     for split in ood_config.split_names:
