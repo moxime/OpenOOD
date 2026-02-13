@@ -15,6 +15,8 @@ import time
 class FTTTAPostprocessor(TTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
+        self.batch_size = self.config.ood_dataset.batch_size
+
         self.setup_flag = False
         ft_args = self.config.postprocessor.ft
         self.lr = ft_args.lr
