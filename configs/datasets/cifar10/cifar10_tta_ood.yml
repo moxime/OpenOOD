@@ -8,7 +8,6 @@ ood_dataset:
 
   dataset_class: ImglistDataset
   batch_size: 32 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
-  shuffle: False
 
   split_names: [aux, val, nearood, farood, mixture]
 

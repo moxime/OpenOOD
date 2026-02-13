@@ -22,9 +22,6 @@ class TTAPostprocessor(BasePostprocessor):
         self.args = self.config.postprocessor.postprocessor_args
         self.args_dict = self.config.postprocessor.postprocessor_sweep
         # batch_size for fine_tuning
-        self.batch_size = self.config.postprocessor.get('batch_size',
-                                                        self.config.ood_dataset.batch_size)
-
         if self.config.postprocessor.get('reset_network', True):
             self._reset_net_at_chunk = config.network.checkpoint
         else:
