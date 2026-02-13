@@ -5,5 +5,5 @@ postprocessor:
     threshold: -1.
   ft:
     epochs: 200
-    beta: 1.
+    beta: 0.5
   postprocessor_args:
