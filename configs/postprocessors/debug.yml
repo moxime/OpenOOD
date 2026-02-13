@@ -3,6 +3,7 @@ postprocessor:
   APS_mode: False
   ft:
     epochs: 2
+    beta: 1.
   padding:
     threshold: 0.5
   postprocessor_args:
