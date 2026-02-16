@@ -55,8 +55,8 @@ case $dataset in
     cifar10)
     # network=resnet18_32x32
     # ckpt_suffix=base_e100_lr0.1_default
-	network=resnet20
-	ckpt="checkpoints/resnet20/best.ckpt"
+	network=resnet20_32x32
+	ckpt="checkpoints/cifar10_resnet20/best.ckpt"
     ;;
 
     cifar100)
