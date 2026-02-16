@@ -1,13 +1,12 @@
 #!/bin/bash
-#SBATCH --output=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%A-%a.out
-#SBATCH --error=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%A-%a.err
+#SBATCH --output=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%J.out
+#SBATCH --error=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood/jobs/job-%J.err
 #SBATCH --mail-user=mossonce@gmail.com
 #SBATCH --mail-type=ALL
 #SBATCH --chdir=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood
 #SBATCH --gres=gpu:1
 #SBATCH --time=2-00:00:00
 #SBATCH --constraint=v100
-#SBATCH --array=0-10
 
 
 dataset=cifar10
@@ -56,8 +55,8 @@ case $dataset in
     cifar10)
     # network=resnet18_32x32
     # ckpt_suffix=base_e100_lr0.1_default
-	network=resnet20
-	ckpt="checkpoints/resnet20/best.ckpt"
+	network=resnet20_32x32
+	ckpt="checkpoints/cifar10_resnet20/best.ckpt"
     ;;
 
     cifar100)
@@ -93,10 +92,10 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
 
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
-       configs/datasets/$dataset/"$dataset"_tta__ood.yml \
+       configs/datasets/$dataset/"$dataset"_tta_ood.yml \
        configs/preprocessors/base_preprocessor.yml \
-       configs/postprocessors/$method.yml \
        configs/pipelines/test/test_tta_ood.yml \
+       configs/postprocessors/$method.yml \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
