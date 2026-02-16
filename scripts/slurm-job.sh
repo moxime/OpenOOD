@@ -7,7 +7,6 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=2-00:00:00
 #SBATCH --constraint=v100
-#SBATCH --array=0-10
 
 
 dataset=cifar10
