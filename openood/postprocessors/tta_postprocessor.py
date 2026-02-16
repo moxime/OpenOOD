@@ -22,10 +22,9 @@ class TTAPostprocessor(BasePostprocessor):
         self.args = self.config.postprocessor.postprocessor_args
         self.args_dict = self.config.postprocessor.postprocessor_sweep
         # batch_size for fine_tuning
-        if self.config.postprocessor.get('reset_network', True):
-            self._reset_net_at_chunk = config.network.checkpoint
-        else:
-            self._reset_net_at_chunk = None
+        self.checkpoint = config.network.checkpoint
+
+        self.reload_network_at_chunk = config.postprocessor.reload_network
 
         self.chunk_size = self.config.pipeline.chunk_size
 
@@ -47,13 +46,19 @@ class TTAPostprocessor(BasePostprocessor):
         """
         pass
 
+    def reload_network(self, net):
+        net.load_state_dict(torch.load(self.checkpoint))
+
     def reset(self, net, data_loader, padding_id_dl=None, padding_ood_dl=None):
         """reset is done at each new "experiment" (dataset)
 
-        for instance, if psotprocessor manages an history dict, this
+        for instance, if postprocessor manages an history dict, this
         might be the place to do it (by overriding this method)
 
         """
+
+        self.reload_network(net)
+
         self.pad_sets = {_: [] for _ in ('self', 'ood', 'id')}
 
         self.pad_dls = {}
@@ -90,8 +95,8 @@ class TTAPostprocessor(BasePostprocessor):
         done before postprocessing chunk (data)
         """
 
-        if self._reset_net_at_chunk:
-            net.load_state_dict(torch.load(self._reset_net_at_chunk))
+        if self.reload_network_at_chunk:
+            self.reload_network(net)
 
         for p in self.pad_dls:
             """

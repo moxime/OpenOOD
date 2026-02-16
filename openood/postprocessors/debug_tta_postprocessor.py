@@ -58,6 +58,11 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
         self.temperature = self.args.temperature
         self.bogus = self.args.bogus
 
+    def reload_network(self, net):
+
+        super().reload_network(net)
+        print('**** reloaded network')
+
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
             return

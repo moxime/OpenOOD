@@ -40,6 +40,7 @@ evaluator:
 
 
 postprocessor:
+  reload_network: True # reset network at new chunk
   padding:
     id: 1.
     ood: 0.5
