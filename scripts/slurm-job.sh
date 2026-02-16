@@ -94,8 +94,8 @@ python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
        configs/datasets/$dataset/"$dataset"_tta_ood.yml \
        configs/preprocessors/base_preprocessor.yml \
-       configs/postprocessors/$method.yml \
        configs/pipelines/test/test_tta_ood.yml \
+       configs/postprocessors/$method.yml \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
