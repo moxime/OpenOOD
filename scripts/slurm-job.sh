@@ -92,7 +92,7 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
 
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
-       configs/datasets/$dataset/"$dataset"_tta__ood.yml \
+       configs/datasets/$dataset/"$dataset"_tta_ood.yml \
        configs/preprocessors/base_preprocessor.yml \
        configs/postprocessors/$method.yml \
        configs/pipelines/test/test_tta_ood.yml \
