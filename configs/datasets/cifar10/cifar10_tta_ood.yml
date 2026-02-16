@@ -68,4 +68,6 @@ ood_dataset:
 
     tin_mix:
       sets: [tin, svhn, places365]
-  
+
+    old_mix:
+      sets: [tin, svhn, places365, texture]
