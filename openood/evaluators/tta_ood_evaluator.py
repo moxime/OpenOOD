@@ -74,7 +74,7 @@ class TTAOODEvaluator(OODEvaluator):
                   flush=True)
 
             padding_id_dl = id_ood_data_loaders.get('padding', {}).get('id')
-            padding_ood_dl = id_ood_data_loaders.get('padding', {}).get(dataset_name)
+            padding_ood_dl = id_ood_data_loaders.get('padding', {}).get('ood')
             pred, conf, label = postprocessor.inference(net, id_ood_dl,
                                                         padding_id_dl=padding_id_dl,
                                                         padding_ood_dl=padding_ood_dl,
