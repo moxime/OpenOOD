@@ -47,6 +47,7 @@ class TTAPostprocessor(BasePostprocessor):
         pass
 
     def reload_network(self, net):
+        print('*** reset net')
         net.load_state_dict(torch.load(self.checkpoint))
 
     def reset(self, net, data_loader, padding_id_dl=None, padding_ood_dl=None):
