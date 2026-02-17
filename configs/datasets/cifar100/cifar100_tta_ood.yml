@@ -1,0 +1,66 @@
+ood_dataset:
+  name: cifar100_ood
+  num_classes: 100
+
+  num_workers: '@{num_workers}'
+  num_gpus: '@{num_gpus}'
+  num_machines: '@{num_machines}'
+
+  dataset_class: ImglistDataset
+  batch_size: 256 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
+
+  padding:
+    datasets: [lsunr]
+
+    lsunr:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/test_lsunr.txt
+
+      
+  split_names: [val, nearood, farood, mixture]
+
+  
+  val:
+    data_dir: ./data/images_classic/
+    imglist_pth: ./data/benchmark_imglist/cifar100/val_tin.txt
+
+
+  nearood:
+    datasets: [cifar10, tin]
+    cifar10:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_cifar10.txt
+    tin:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_tin.txt
+
+
+  farood:
+    datasets: [mnist, svhn, texture, places365]
+    mnist:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_mnist.txt
+    svhn:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_svhn.txt
+    texture:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_texture.txt
+    places365:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/test_places365.txt
+
+       
+  mixture:
+    datasets: [cifar10_mix, tin_mix]
+
+    cifar10_mix:
+      sets: [cifar10, mnist, texture]
+
+    tin_mix:
+      sets: [tin, svhn, places365]
+
+    old_mix:
+      sets: [tin, svhn, places365, texture]
+
+
