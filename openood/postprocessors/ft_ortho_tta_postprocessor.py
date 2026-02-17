@@ -33,8 +33,8 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
         return (0., self.beta if (epoch < epochs//2 or conf < self.pad_thresholds['self']) else 0.)
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
-        if epoch == epochs // 2:
-            self.reload_network(net)
+        # if epoch == epochs // 2:
+        #     self.reload_network(net)
         super().finetune(net,  data, conf, pred, epoch=epoch, epochs=epochs)
 
     @torch.no_grad()
