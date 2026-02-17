@@ -71,7 +71,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return
 
         wheres, wherecount = np.unique(where, return_counts=True)
-        print('{}: {}'.format(*_) for _ in zip(wheres, wherecount))
+        print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
