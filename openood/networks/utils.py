@@ -48,7 +48,7 @@ def get_network(network_config):
     if network_config.name == 'resnet18_32x32':
         net = ResNet18_32x32(num_classes=num_classes)
 
-    if network_config.name == 'resnet20_32x32':
+    elif network_config.name == 'resnet20_32x32':
         net = resnet20(num_classes=num_classes)
 
     elif network_config.name == 'resnet18_256x256':
