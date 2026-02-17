@@ -39,6 +39,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.debug = config.debug
 
+        self.ood_ratio = config.pipeline.ood_ratio
+
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training id dataset
@@ -176,7 +178,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         min_conf = conf.min()
         max_conf = conf.max()
-        q1 = conf.quantile(0.25)
+        q1 = conf.quantile(self.ood_ratio)
         q2 = conf.quantile(0.5)
         q3 = conf.quantile(0.75)
 
