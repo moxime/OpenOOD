@@ -67,6 +67,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         implement this methd in child class for debug purpose
         """
+        return
         if where is None or epoch:
             return
 
