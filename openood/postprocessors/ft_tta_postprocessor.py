@@ -63,11 +63,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return (0., self.beta)
 
-    def inspect_minibatch(self, **kw):
+    def inspect_minibatch(self, where=None, epoch=0, **kw):
         """
         implement this methd in child class for debug purpose
         """
-        pass
+        if where is None or epoch:
+            return
+
+        wheres, wherecount = np.unique(where, return_counts=True)
+        print('{}: {}'.format(*_) for _ in zip(wheres, wherecount))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -111,7 +115,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             w_loss = torch.tensor([self.loss_weights(*p, epoch, epochs)
                                    for p in p_]).T.cuda()
 
-            self.inspect_minibatch()
+            self.inspect_minibatch(where=where, epoch=epoch)
 
             self.optimizer.zero_grad()
 
