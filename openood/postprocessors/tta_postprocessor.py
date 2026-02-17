@@ -183,7 +183,7 @@ class TTAPostprocessor(BasePostprocessor):
         q3 = conf.quantile(0.75)
 
         s = (f'self pad: {n_pad} (+{delta_pad}) [{epoch}/{epochs}]'
-             f' conf: < {min_conf:6.3f} --[{q1:6.3f} | {q2:6.3f} | {q3:6.3f}]-- {max_conf:5.3f} >')
+             f' conf: < {min_conf:5.2f} --[{q1:5.2f} | {q2:5.2f} | {q3:5.2f}]-- {max_conf:4.2f} >')
 
         try:
             s = '\{}\ '.format(self._clipped_grad) + s
