@@ -18,6 +18,10 @@ while :; do
 	    shift
 	    dataset=$1
 	    ;;
+	-n )
+	    shift
+	    network=$1
+	    ;;
 	* )
 	    break
 	    ;;
@@ -53,29 +57,41 @@ unset ckpt
 case $dataset in
 
     cifar10)
-    network=resnet18_32x32
-    ckpt_suffix=base_e100_lr0.1_default
-    # network=resnet20_32x32
-    # ckpt="checkpoints/cifar10_resnet20/best.ckpt"
-    ;;
+
+	if [ -z $network ] ; then
+	    network=resnet20_32x32
+	fi
+
+	case $network in
+
+	    resnet20_32x32 )
+		ckpt="checkpoints/cifar10_resnet20/best.ckpt"
+		;;
+	    resnet18_32x32 )
+		ckpt_suffix=base_e100_lr0.1_default
+		;;
+	esac
+	;;
 
     cifar100)
 	network=resnet18_32x32
 	ckpt_suffix=base_e100_lr0.1_default
-    ;;
+	;;
 
     imagenet)
 	network=resnet50
 	ckpt="checkpoints/resnet50-0676ba61.pth"
 
-    ;;
+	;;
 
     imagenet200)
 	network=resnet18_224x224
 	ckpt_suffix=base_e90_lr0.1_default
-    ;;
+	;;
 
 esac
+
+echo $network $dataset
 
 if [ -z $ckpt ] ; then
     ckpt=checkpoints/"$dataset"_"$network"_"$ckpt_suffix"/s"$seed"/best.ckpt
