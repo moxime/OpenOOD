@@ -4,6 +4,6 @@ postprocessor:
   padding:
     threshold: -1.
   ft:
-    epochs: 200
-    beta: 0.5
+    epochs: 400
+    beta: 1
   postprocessor_args:
