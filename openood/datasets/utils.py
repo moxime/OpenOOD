@@ -116,6 +116,7 @@ def get_tta_ood_dataloader(config: Config):
     dset_dict = {}
     dataloader_dict = {'padding': {'id': DataLoader(get_dataloader(config)['train'].dataset,
                                                     shuffle=True,
+                                                    num_workers=ood_config.num_workers,
                                                     batch_size=pad_sizes['id'])}}
     data_aux_preprocessor = TestStandardPreProcessor(config)
 
@@ -137,6 +138,7 @@ def get_tta_ood_dataloader(config: Config):
         dataloader_dict['padding']['ood'] = DataLoader(padding_set,
                                                        sampler=MixtureTimeSampler(
                                                            padding_set, period=1),
+                                                       num_workers=ood_config.num_workers,
                                                        batch_size=pad_sizes['ood'])
 
     for split in ood_config.split_names:
@@ -155,6 +157,7 @@ def get_tta_ood_dataloader(config: Config):
             dataset = IODataset(**{name: ood_dataset})
             dataloader = DataLoader(dataset,
                                     batch_size=chunk_size,
+                                    num_workers=ood_config.num_workers,
                                     sampler=IOSampler(dataset))
 
             dataloader_dict[split] = dataloader
@@ -167,6 +170,7 @@ def get_tta_ood_dataloader(config: Config):
                 dataset = IODataset(**suboods)
                 dataloader = DataLoader(dataset,
                                         batch_size=chunk_size,
+                                        num_workers=ood_config.num_workers,
                                         sampler=IOSampler(dataset))
                 sub_dataloader_dict[dataset_name] = dataloader
             dataloader_dict[split] = sub_dataloader_dict
@@ -188,6 +192,7 @@ def get_tta_ood_dataloader(config: Config):
                 dataset = IODataset(**{dataset_name: ood_dataset})
                 dataloader = DataLoader(dataset,
                                         batch_size=chunk_size,
+                                        num_workers=ood_config.num_workers,
                                         sampler=IOSampler(dataset))
 
                 dset_dict[dataset_name] = ood_dataset
