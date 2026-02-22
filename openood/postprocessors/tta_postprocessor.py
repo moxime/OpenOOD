@@ -116,13 +116,25 @@ class TTAPostprocessor(BasePostprocessor):
             data = batch['data'].cuda()
 
             if p == 'id':
-                pred = batch['label'].cuda()
-                conf = torch.tensor([np.inf for _ in pred]).cuda()
+                continue
 
-            else:
-                pred, conf = self.postprocess(net, data)
+            pred, conf = self.postprocess(net, data)
 
             n = self.update_pad_set(data, conf, pred, where=p)
+
+    def init_epoch(self, net, data, epoch=0, epochs=0):
+
+        if 'id' in self.pad_iters:
+            try:
+                batch = next(self.pad_iters['id'])
+            except StopIteration:
+                self.pad_iters['id'] = iter(self.pad_dls['id'])
+                batch = next(self.pad_iters['id'])
+
+            data = batch['data'].cuda()
+            pred = batch['label'].cuda()
+            conf = torch.tensor([np.inf for _ in pred]).cuda()
+            self.update_pad_set(data, conf, pred, where='id')
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, pred=None):
@@ -228,6 +240,8 @@ class TTAPostprocessor(BasePostprocessor):
                 Important: we keep pred calculated prior to the FT
                 """
                 pred, conf = self.postprocess(net, data, pred=pred)
+
+                self.init_epoch(net, data, epoch=epoch, epochs=epochs)
 
                 for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                     outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
