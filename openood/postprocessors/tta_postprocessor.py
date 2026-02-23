@@ -96,31 +96,8 @@ class TTAPostprocessor(BasePostprocessor):
         """
         done before postprocessing chunk (data)
         """
-
         if self.reload_network_at_chunk:
             self.reload_network(net)
-
-        for p in self.pad_dls:
-            """
-            id_batch = {_: id_batch[_].cuda() for _ in ('label', 'data')}
-            id_batch['pred'] = id_batch.pop('label')
-            id_batch['where'] = ['id' for _ in id_batch['pred']]
-            id_batch['conf'] = torch.tensor([np.inf for _ in id_batch['pred']]).cuda()
-            """
-            try:
-                batch = next(self.pad_iters[p])
-            except StopIteration:
-                self.pad_iters[p] = iter(self.pad_dls[p])
-                batch = next(self.pad_iters[p])
-
-            data = batch['data'].cuda()
-
-            if p == 'id':
-                continue
-
-            pred, conf = self.postprocess(net, data)
-
-            n = self.update_pad_set(data, conf, pred, where=p)
 
     def init_epoch(self, net, data, epoch=0, epochs=0):
 
@@ -133,8 +110,22 @@ class TTAPostprocessor(BasePostprocessor):
 
             data = batch['data'].cuda()
             pred = batch['label'].cuda()
-            conf = torch.tensor([np.inf for _ in pred]).cuda()
+            conf = torch.inf * torch.ones_like(pred)
+
             self.update_pad_set(data, conf, pred, where='id')
+
+        if 'ood' in self.pad_dls:
+
+            try:
+                batch = next(self.pad_iters['ood'])
+            except StopIteration:
+                self.pad_iters['ood'] = iter(self.pad_dls['ood'])
+                batch = next(self.pad_iters['ood'])
+
+            data = batch['data'].cuda()
+            pred, conf = self.postprocess(net, data)
+
+            self.update_pad_set(data, conf, pred, where='ood')
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, pred=None):
