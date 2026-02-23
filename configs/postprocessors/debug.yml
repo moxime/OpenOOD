@@ -5,7 +5,7 @@ postprocessor:
     epochs: 2
     beta: 1.
   padding:
-    threshold: 0.5
+    threshold: -1
   postprocessor_args:
     temperature: 100
     bogus: 42

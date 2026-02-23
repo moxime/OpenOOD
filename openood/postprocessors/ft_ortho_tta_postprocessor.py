@@ -30,7 +30,7 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
 
         - during second half: only if likely ood (conf < sb) """
 
-        return (0., self.beta if (epoch < epochs//2 or conf < self.threshold['mix']) else 0.)
+        return (0., self.beta if (epoch < epochs//2 or conf < self.pad_thresholds['self']) else 0.)
 
     def calculate_conf(self, epoch=0, epochs=0):
 
