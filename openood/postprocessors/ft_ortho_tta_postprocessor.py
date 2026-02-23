@@ -32,12 +32,40 @@ class OrthoTTAPostprocessor(FTTTAPostprocessor):
 
         return (0., self.beta if (epoch < epochs//2 or conf < self.pad_thresholds['self']) else 0.)
 
-    def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
+    def calculate_conf(self, epoch=0, epochs=0):
 
-        if epoch == epochs // 2:
+        return epoch in (0, epochs//2, epochs)
+
+    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
+        if epoch in (0, epochs//2):
             self.reload_network(net)
 
-        super().finetune(net,  data, conf, pred, epoch=epoch, epochs=epochs)
+        if 'id' in self.pad_iters:
+            try:
+                batch = next(self.pad_iters['id'])
+            except StopIteration:
+                self.pad_iters['id'] = iter(self.pad_dls['id'])
+                batch = next(self.pad_iters['id'])
+
+            data = batch['data'].cuda()
+            pred = batch['label'].cuda()
+            conf = torch.inf * torch.ones_like(pred)
+
+            self.update_pad_set(data, conf, pred, where='id')
+
+        if 'ood' in self.pad_dls and not epoch:
+
+            try:
+                batch = next(self.pad_iters['ood'])
+            except StopIteration:
+                self.pad_iters['ood'] = iter(self.pad_dls['ood'])
+                batch = next(self.pad_iters['ood'])
+
+            data = batch['data'].cuda()
+            pred, conf = self.postprocess(net, data)
+
+            self.update_pad_set(data, conf, pred, where='ood')
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):

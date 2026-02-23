@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from .base_postprocessor import BasePostprocessor
 from .tta_postprocessor import TTAPostprocessor
 from .ft_tta_postprocessor import FTTTAPostprocessor
+from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
 from .info import num_classes_dict
 import openood.utils.comm as comm
 
@@ -51,7 +52,7 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(FTTTAPostprocessor):
+class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
@@ -61,7 +62,7 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
     def reload_network(self, net):
 
         super().reload_network(net)
-        print('**** reloaded network')
+        print('*** reloaded network')
 
     def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
         if self.setup_flag:
@@ -83,10 +84,17 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
 
         self.setup_flag = True
 
+    def calculate_conf(self, epoch=0, epochs=0):
+
+        b = super().calculate_conf(epoch=epoch, epochs=epochs)
+        if b:
+            print('*** Calculating conf ({})'.format(epoch))
+        return b
+
     def update_pad_set(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_set(data, conf, pred, where=where, **kw)
-        # print('*** added {} pad samples from {}'.format(n, where))
+        print('*** added {} pad samples from {}'.format(n, where))
         return n
 
     def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
