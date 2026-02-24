@@ -5,6 +5,7 @@
 #SBATCH --mail-type=ALL
 #SBATCH --chdir=/mnt/beegfs/home/ossonce/tia-dl-ossonce/openood
 #SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
 #SBATCH --time=2-00:00:00
 #SBATCH --constraint=v100
 
