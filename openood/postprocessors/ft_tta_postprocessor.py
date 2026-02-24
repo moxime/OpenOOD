@@ -67,7 +67,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         implement this methd in child class for debug purpose
         """
-        return
+        if not hasattr(self, '_debug'):
+            return
+
         if where is None or epoch:
             return
 
@@ -84,7 +86,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         # for instance you can create a minibatch_loader
 
-        minibatch_loader = DataLoader(sum((self.pad_sets[_] for _ in self.pad_sets), start=batch_list),
+        minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers), start=batch_list),
                                       shuffle=True,
                                       batch_size=self.batch_size,
                                       drop_last=False)
