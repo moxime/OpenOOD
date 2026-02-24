@@ -58,6 +58,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         self.setup_flag = False
         self.temperature = self.args.temperature
         self.bogus = self.args.bogus
+        self._debug = True
 
     def reload_network(self, net):
 
@@ -91,9 +92,9 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
             print('*** Calculating conf ({})'.format(epoch))
         return b
 
-    def update_pad_set(self, data, conf, pred, where='self', **kw):
+    def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
-        n = super().update_pad_set(data, conf, pred, where=where, **kw)
+        n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
         print('*** added {} pad samples from {}'.format(n, where))
         return n
 

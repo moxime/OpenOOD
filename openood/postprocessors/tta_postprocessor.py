@@ -61,16 +61,28 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.reload_network(net)
 
-        self.pad_sets = {_: [] for _ in ('self', 'ood', 'id')}
+        self.pad_buffers = {_: [] for _ in ('self', 'ood', 'id')}
 
         self.pad_dls = {}
         if padding_id_dl:
             self.pad_dls['id'] = padding_id_dl
         if padding_ood_dl:
             self.pad_dls['ood'] = padding_ood_dl
-        self.pad_iters = {_: iter(d) for _, d in self.pad_dls.items()}
 
-    def update_pad_set(self, data, conf, pred, where='self', **kw):
+    def next_pad_batch(self, where):
+
+        assert where in self.pad_dls, where
+
+        try:
+            return next(self._pad_iters[where])
+        except AttributeError:
+            self._pad_iters = {}
+        except (KeyError, StopIteration):
+            self._pad_iters[where] = iter(self.pad_dls[where])
+
+        return self.next_pad_batch(where)
+
+    def update_pad_buffers(self, data, conf, pred, where='self', **kw):
         """ add x from data to pad_set, depending on conf and predicted label
 
         each element is added as a dictionary
@@ -86,10 +98,10 @@ class TTAPostprocessor(BasePostprocessor):
         for x, s, y in zip(data, conf, pred):
 
             if s <= threshold:
-                self.pad_sets[where].append(dict(data=x, pred=y, conf=s, where=where))
+                self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
                 n += 1
-                if len(self.pad_sets[where]) > self.pad_sizes[where]:
-                    self.pad_sets[where].pop(0)
+                if len(self.pad_buffers[where]) > self.pad_sizes[where]:
+                    self.pad_buffers[where].pop(0)
         return n
 
     def new_chunk(self, net, data):
@@ -157,7 +169,7 @@ class TTAPostprocessor(BasePostprocessor):
 
     def epoch_sumup(self, data, conf, pred, delta_pad, num_chunk, epoch, epochs):
 
-        n_pad = len(self.pad_sets['self'])
+        n_pad = len(self.pad_buffers['self'])
         r = (conf < 0).float().mean()
 
         min_conf = conf.min()
@@ -231,10 +243,10 @@ class TTAPostprocessor(BasePostprocessor):
                                                               epoch,
                                                               epochs))
 
-            delta_self_pad = self.update_pad_set(data=data,
-                                                 conf=conf,
-                                                 pred=pred,
-                                                 where='self')
+            delta_self_pad = self.update_pad_buffers(data=data,
+                                                     conf=conf,
+                                                     pred=pred,
+                                                     where='self')
         # convert values into numpy array
         for _ in outputs_by_epochs:
             for epoch in outputs_by_epochs[_]:
