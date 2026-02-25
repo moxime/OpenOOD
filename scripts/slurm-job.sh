@@ -105,7 +105,9 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
    configs/preprocessors/base_preprocessor.yml \
    configs/postprocessors/$method.yml \
    configs/pipelines/test/test_tta_ood.yml \
-   $ckpt
+   $ckpt > /dev/stdout
+
+echo "$@" > /dev/stdout
 
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
