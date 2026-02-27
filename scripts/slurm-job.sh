@@ -23,6 +23,10 @@ while :; do
 	    shift
 	    network=$1
 	    ;;
+	-m )
+	    shift
+	    method=$1
+	    ;;
 	* )
 	    break
 	    ;;
