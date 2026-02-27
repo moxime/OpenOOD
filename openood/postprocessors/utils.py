@@ -48,6 +48,7 @@ from .tta_postprocessor import TTAPostprocessor
 from .debug_tta_postprocessor import DebugTTAPostprocessor
 from .ft_tta_postprocessor import FTTTAPostprocessor
 from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
+from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 
 def get_postprocessor(config: Config):
@@ -99,7 +100,8 @@ def get_postprocessor(config: Config):
         'tta': TTAPostprocessor,
         'debug': DebugTTAPostprocessor,
         'ft': FTTTAPostprocessor,
-        'ft_ortho': OrthoTTAPostprocessor
+        'ft_ortho': OrthoTTAPostprocessor,
+        'ft_dist': DistTTAPostprocessor
     }
 
     return postprocessors[config.postprocessor.name](config)

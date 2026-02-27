@@ -18,10 +18,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.batch_size = self.config.ood_dataset.batch_size
 
         self.setup_flag = False
-        ft_args = self.config.postprocessor.ft
-        self.lr = ft_args.lr
-        self.wd = ft_args.wd
-        self.beta = ft_args.beta
+        self.ft_args = self.config.postprocessor.ft
+        self.lr = self.ft_args.lr
+        self.wd = self.ft_args.wd
+        self.beta = self.ft_args.beta
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
