@@ -42,7 +42,7 @@ evaluator:
 postprocessor:
   reload_network: True # reset network at new chunk
   padding:
-    id: 1.
+    id: 2.
     ood: 0.5
     self: 1.
     threshold:  # put x in pad_sef if conf <= threshold, no value will be -inf

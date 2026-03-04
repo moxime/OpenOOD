@@ -89,7 +89,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         {'data': x, 'conf': conf, 'pred': pred, 'where': where}
 
-        where can be ood (knonw ood from ext_padding), id (known id eg from train) or self
+        where can be 'ood' (knonw ood from ext_padding), 'id' (known id eg from train) or 'self'
 
         """
         n = 0
