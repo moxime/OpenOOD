@@ -72,6 +72,8 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         self.bogus = self.args.bogus
         self._debug = True
 
+        self.loss = timedfunc('loss')(self.loss)
+
     def reload_network(self, net):
 
         super().reload_network(net)
@@ -108,7 +110,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} pad samples from {}'.format(n, where))
+        print('*** added {} pad samples ({}) from {}'.format(n, len(self.pad_buffers[where]), where))
         return n
 
     # @timedfunc('loss weight')
@@ -127,10 +129,11 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def postprocess(self, *a, **kw):
         return super().postprocess(*a, **kw)
 
-    # @timedfunc('alternate loss')
+    @timedfunc('alternate loss')
     def alternate_loss(self, *a, **kw):
         return super().alternate_loss(*a, **kw)
 
+    @timedfunc('FT')
     def finetune(self, *a, **kw):
         return super().finetune(*a, **kw)
 

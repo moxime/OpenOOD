@@ -22,7 +22,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.lr = self.ft_args.lr
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
-        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -32,6 +31,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().setup(net, id_loader_dict, ood_loader_dict)
 
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
+        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         self.setup_flag = True
 
