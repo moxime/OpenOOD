@@ -84,7 +84,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         w_loss_w = {}
         for w in wheres:
             w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
+            print('{}: {:.3f}, {:.3f}'.format(w, *w_loss_w[w].squeeze()))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
