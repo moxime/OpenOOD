@@ -22,7 +22,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.lr = self.ft_args.lr
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
-        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -32,6 +31,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().setup(net, id_loader_dict, ood_loader_dict)
 
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
+        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         self.setup_flag = True
 
@@ -84,7 +84,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         w_loss_w = {}
         for w in wheres:
             w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
+            print('{}: {:.3f}, {:.3f}'.format(w, *w_loss_w[w].squeeze()))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times

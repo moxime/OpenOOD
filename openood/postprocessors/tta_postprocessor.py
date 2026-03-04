@@ -95,13 +95,14 @@ class TTAPostprocessor(BasePostprocessor):
         n = 0
         threshold = self.pad_thresholds[where]
 
-        for x, s, y in zip(data, conf, pred):
+        i_ = conf <= threshold
+        n = min(i_.sum(), self.pad_sizes[where])
+        # remove older samples that are replaced by new ones
+        self.pad_buffers[where] = self.pad_buffers[where][n:]
+        # append at most n samples
+        for x, s, y in zip(data[i_][-n:], conf[i_][-n:], pred[i_][-n:]):
+            self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
 
-            if s <= threshold:
-                self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
-                n += 1
-                if len(self.pad_buffers[where]) > self.pad_sizes[where]:
-                    self.pad_buffers[where].pop(0)
         return n
 
     def new_chunk(self, net, data):

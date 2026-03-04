@@ -27,7 +27,7 @@ def timedfunc(message):
         def wrapped(*a, **kw):
             t0 = time.time()
             out = func(*a, **kw)
-            print('{} executed in {:.2g}s'.format(message, time.time() - t0))
+            # print('{} executed in {:.2g}s'.format(message, time.time() - t0))
             return out
         return wrapped
     return wrapper
@@ -108,7 +108,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} pad samples from {}'.format(n, where))
+        print('*** added {} pad samples ({}) from {}'.format(n, len(self.pad_buffers[where]), where))
         return n
 
     # @timedfunc('loss weight')
@@ -127,10 +127,11 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def postprocess(self, *a, **kw):
         return super().postprocess(*a, **kw)
 
-    # @timedfunc('alternate loss')
+    @timedfunc('alternate loss')
     def alternate_loss(self, *a, **kw):
         return super().alternate_loss(*a, **kw)
 
+    @timedfunc('FT')
     def finetune(self, *a, **kw):
         return super().finetune(*a, **kw)
 
