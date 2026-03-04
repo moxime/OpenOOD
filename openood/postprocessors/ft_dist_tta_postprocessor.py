@@ -28,21 +28,31 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def alternate_loss(self, logits, features, labels, net):
 
+        return torch.zeros_like(labels)
         return features.square().sum(-1)
 
     def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
-        """ return loss_weight, alternate_loss_weight for sample x """
+        """ return loss_weight, alternate_loss_weight for sample x
 
-        if where != 'mix':
-            return super().loss_weights(x, logit, feature, label, conf, where, epoch=epoch, epochs=epochs)
-
-        """ if mix :
+        if mix :
 
         - during first half (epoch < epoch / 2): keep every sample
 
         - during second half: only if likely ood (conf < sb) """
 
-        return (0., self.beta if (epoch < epochs//2 or conf < self.pad_thresholds['self']) else 0.)
+        if where == 'id':
+            return (self.n_samples['total'] / self.n_samples['original'], 0)
+
+        alpha_alt = self.n_samples['total'] / self.n_samples['alt']
+        if where in ('ood', 'self'):
+            return (0., alpha_alt * self.beta)
+
+        if where == 'mix':
+            if epoch < epochs//2 or conf < self.pad_thresholds['self']:
+                return (0., alpha_alt * self.beta)
+            return (0., 0.)
+
+        raise ValueError('{} is not a known placeholder for sample'.format(where))
 
     def calculate_conf(self, epoch=0, epochs=0):
 
@@ -69,6 +79,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
             self.update_pad_buffers(data, conf, pred, where='ood')
 
+        self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
+        self.n_samples['mix'] = len(conf) if epoch < epochs//2 else (conf < self.pad_thresholds['self']).sum()
+
+        self.n_samples['total'] = sum(self.n_samples.values())
+        self.n_samples['original'] = self.n_samples['id']
+        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['id']
+
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
         """ postprocess is done for each "chunk" of data at each epoch
@@ -89,11 +106,6 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         m_y_2 = weight.index_select(0, pred).square().sum(-1)  # of shape M (MxL summed on last dim)
 
         prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
-
-        # p1, p2, p3 = prob_y.log().cpu().quantile(torch.tensor([0.25, 0.5, 0.75]))
-        # pm = prob_y.log().mean()
-        # om = ortho_1.mean()
-        # print(f'*** prob_y {p1:.3f} -- {p2:.3f} -- {p3:.3f} ({pm:.3f} ortho {om}')
 
         conf = prob_y.log() + 0.5 * (features - self.mu_alt).square().sum(dim=-1) - b_y - 0.5 * m_y_2
 
