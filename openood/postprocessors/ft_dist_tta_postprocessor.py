@@ -28,7 +28,6 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def alternate_loss(self, logits, features, labels, net):
 
-        return torch.zeros_like(labels)
         return features.square().sum(-1)
 
     def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):

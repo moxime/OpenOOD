@@ -10,6 +10,7 @@ from tqdm import tqdm
 
 from torch.utils.data import DataLoader
 
+import time
 
 from .base_postprocessor import BasePostprocessor
 from .tta_postprocessor import TTAPostprocessor
@@ -19,6 +20,17 @@ from .info import num_classes_dict
 import openood.utils.comm as comm
 
 import pandas as pd
+
+
+def timedfunc(message):
+    def wrapper(func):
+        def wrapped(*a, **kw):
+            t0 = time.time()
+            out = func(*a, **kw)
+            print('{} executed in {:.2g}s'.format(message, time.time() - t0))
+            return out
+        return wrapped
+    return wrapper
 
 
 def _unfold_(obj, prefix='', prefix_inc='      '):
@@ -92,15 +104,36 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
             print('*** Calculating conf ({})'.format(epoch))
         return b
 
+    @timedfunc('update pad buffers')
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
         print('*** added {} pad samples from {}'.format(n, where))
         return n
 
+    # @timedfunc('loss weight')
     def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
         w = super().loss_weights(x, logit, feature, label, conf, where, epoch=epoch, epochs=epochs)
 
         # if epoch in (epochs // 3, 2 * epochs // 3):
         #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
         return w
+
+    @timedfunc('init epoch')
+    def init_epoch(self, *a, **kw):
+        return super().init_epoch(*a, **kw)
+
+    @timedfunc('post process')
+    def postprocess(self, *a, **kw):
+        return super().postprocess(*a, **kw)
+
+    # @timedfunc('alternate loss')
+    def alternate_loss(self, *a, **kw):
+        return super().alternate_loss(*a, **kw)
+
+    def finetune(self, *a, **kw):
+        return super().finetune(*a, **kw)
+
+    @timedfunc('next batch')
+    def next_pad_batch(self, *a, **kw):
+        return super().next_pad_batch(*a, **kw)
