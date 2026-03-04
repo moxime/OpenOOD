@@ -27,7 +27,7 @@ def timedfunc(message):
         def wrapped(*a, **kw):
             t0 = time.time()
             out = func(*a, **kw)
-            print('{} executed in {:.2g}s'.format(message, time.time() - t0))
+            # print('{} executed in {:.2g}s'.format(message, time.time() - t0))
             return out
         return wrapped
     return wrapper
@@ -71,8 +71,6 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         self.temperature = self.args.temperature
         self.bogus = self.args.bogus
         self._debug = True
-
-        self.loss = timedfunc('loss')(self.loss)
 
     def reload_network(self, net):
 
