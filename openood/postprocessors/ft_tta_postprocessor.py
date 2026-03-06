@@ -1,5 +1,7 @@
 from typing import Any
 
+from collections import deque
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -92,7 +94,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-        batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
+        batch_list = deque([dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())])
 
         # for instance you can create a minibatch_loader
 

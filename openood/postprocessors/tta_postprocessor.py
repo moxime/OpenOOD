@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from collections import deque
 from contextlib import contextmanager
 from typing import Any
 from tqdm import tqdm
@@ -13,6 +14,23 @@ import openood.utils.comm as comm
 from .base_postprocessor import BasePostprocessor
 
 import time
+
+
+class PadBuffer(deque):
+
+    def __init__(self, size, threshold, thr_key='conf'):
+
+        super().__init__(maxlen=size)
+        self._thr_key = thr_key
+        self.threshold = threshold
+
+    def append(self, **kw):
+
+        assert self._thr_key in kw
+        if kw[self._thr_key] <= self.threshold:
+            super().append(kw)
+            return 1
+        return 0
 
 
 class TTAPostprocessor(BasePostprocessor):
@@ -61,7 +79,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.reload_network(net)
 
-        self.pad_buffers = {_: [] for _ in ('self', 'ood', 'id')}
+        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_])
+                            for _ in ('self', 'ood', 'id')}
 
         self.pad_dls = {}
         if padding_id_dl:
@@ -93,15 +112,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         """
         n = 0
-        threshold = self.pad_thresholds[where]
-
-        i_ = conf <= threshold
-        n = min(i_.sum(), self.pad_sizes[where])
-        # remove older samples that are replaced by new ones
-        self.pad_buffers[where] = self.pad_buffers[where][n:]
-        # append at most n samples
-        for x, s, y in zip(data[i_][-n:], conf[i_][-n:], pred[i_][-n:]):
-            self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
+        for x, s, y in zip(data, conf, pred):
+            n += self.pad_buffers[where].append(data=x, pred=y, conf=s, where=where)
 
         return n
 
