@@ -367,4 +367,7 @@ if __name__ == '__main__':
 
     import sys
 
-    print(setup_config())
+    config = setup_config()
+    print(config)
+
+    print(config.network.margin)

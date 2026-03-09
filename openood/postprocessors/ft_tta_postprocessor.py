@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, BatchSampler
 from .tta_postprocessor import TTAPostprocessor
 
-from openood.losses import uniform_ce
+from openood.losses import uniform_ce, MarginCrossEntropy
 import logging
 import time
 
@@ -32,8 +32,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return
         super().setup(net, id_loader_dict, ood_loader_dict)
 
+        self.loss = MarginCrossEntropy(margin=self.config.network.margin, reduction='none')
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
-        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         self.setup_flag = True
 
