@@ -1,7 +1,7 @@
 network:
   name: resnet20_32x32
   num_classes: '@{dataset.num_classes}'
-  margin: 0.3
+  margin: 0.
   pretrained: False          # set 'True' to load pretrained model
   checkpoint: ./results/cifar10_resnet20/best.ckpt            # ignore if pretrained is false
   num_gpus: '@{num_gpus}'
