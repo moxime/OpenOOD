@@ -117,6 +117,7 @@ def get_tta_ood_dataloader(config: Config):
     dataloader_dict = {'padding': {'id': DataLoader(get_dataloader(config)['train'].dataset,
                                                     shuffle=True,
                                                     num_workers=ood_config.num_workers,
+                                                    drop_last=True,
                                                     batch_size=pad_sizes['id'])}}
     data_aux_preprocessor = TestStandardPreProcessor(config)
 
@@ -139,6 +140,7 @@ def get_tta_ood_dataloader(config: Config):
                                                        sampler=MixtureTimeSampler(
                                                            padding_set, period=1),
                                                        num_workers=ood_config.num_workers,
+                                                       drop_last=True,
                                                        batch_size=pad_sizes['ood'])
 
     for split in ood_config.split_names:
