@@ -13,8 +13,6 @@ import openood.utils.comm as comm
 
 from .base_postprocessor import BasePostprocessor
 
-import time
-
 
 class PadBuffer(deque):
 
@@ -39,7 +37,6 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.args = self.config.postprocessor.postprocessor_args
         self.args_dict = self.config.postprocessor.postprocessor_sweep
-        # batch_size for fine_tuning
         self.checkpoint = config.network.checkpoint
 
         self.reload_network_at_chunk = config.postprocessor.reload_network
@@ -69,7 +66,7 @@ class TTAPostprocessor(BasePostprocessor):
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
 
-    def reset(self, net, data_loader, padding_id_dl=None, padding_ood_dl=None):
+    def reset(self, net, data_loader, aux_id_dl=None, aux_ood_dl=None):
         """reset is done at each new "experiment" (dataset)
 
         for instance, if postprocessor manages an history dict, this
@@ -83,10 +80,10 @@ class TTAPostprocessor(BasePostprocessor):
                             for _ in ('self', 'ood', 'id')}
 
         self.pad_dls = {}
-        if padding_id_dl:
-            self.pad_dls['id'] = padding_id_dl
-        if padding_ood_dl:
-            self.pad_dls['ood'] = padding_ood_dl
+        if aux_id_dl and self.pad_sizes['id'] > 0:
+            self.pad_dls['id'] = aux_id_dl
+        if aux_ood_dl and self.pad_sizes['ood'] > 0:
+            self.pad_dls['ood'] = aux_ood_dl
 
     def next_pad_batch(self, where):
 
@@ -112,6 +109,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         """
         n = 0
+        if where in self.stratified:
+            return 0
         for x, s, y in zip(data, conf, pred):
             n += self.pad_buffers[where].append(data=x, pred=y, conf=s, where=where)
 
@@ -151,7 +150,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         if isinstance(net, dict):
             for subnet in net.values():
-                cls.finetune_mode(subnet, finetune=finetune)
+                cls._finetune_mode(subnet, finetune=finetune)
 
         return
         for module in net.modules():
@@ -211,7 +210,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
-        self.reset(net, data_loader, padding_id_dl=padding_id_dl, padding_ood_dl=padding_ood_dl)
+        self.reset(net, data_loader, aux_id_dl=padding_id_dl, aux_ood_dl=padding_ood_dl)
 
         progress_bar = tqdm(data_loader,
                             dynamic_ncols=True,

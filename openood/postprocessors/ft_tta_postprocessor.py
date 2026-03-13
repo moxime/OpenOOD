@@ -19,6 +19,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().__init__(config)
         self.batch_size = self.config.ood_dataset.batch_size
 
+        self.stratified = [_ for _, s in self.pad_sizes.items() if s < 0]
+        self.pad_sizes.update({_: config.ood_dataset.batch_size for _ in self.stratified})
+
         self.setup_flag = False
         self.ft_args = self.config.postprocessor.ft
         self.lr = self.ft_args.lr
@@ -53,6 +56,18 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
+    def next_aux_minibatch(self, where):
+
+        assert where in self.aux_dls, where
+        try:
+            return next(self._aux_iters[where])
+        except AttributeError:
+            self._aux_iters = {}
+        except (KeyError, StopIteration):
+            self._aux_iters[where] = iter(self.aux_dls[where])
+
+        return self.next_aux_minibatch(where)
+
     def alternate_loss(self, logits, features, labels, net):
 
         return uniform_ce(logits)
@@ -86,7 +101,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         w_loss_w = {}
         for w in wheres:
             w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.3f}, {:.3f}'.format(w, *w_loss_w[w].squeeze()))
+            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
+        means = w_loss.mean(-1)
+        print('orig: {:.2g} x {:.2g} = alt: {:.2g}'.format(means[0], means[1] / means[0], means[1]))
+        if hasattr(self, 'n_samples'):
+            print(self.n_samples)
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times

@@ -24,12 +24,6 @@ pipeline:
   chunk_size: 512
   # in the chunk, portion of ood
   ood_ratio: 0.1
-  #
-  #
-  
-evaluator:
-  name: tta_ood
-  ood_scheme: ood
   # ood_period
   # if 0: do not test mixtures of ood
   # if > 0: mixtures of ood are tested
@@ -37,15 +31,20 @@ evaluator:
   # for instance: ood_period=1 will provide fully heterogeneous chunks of data
   # if ood_period is large (-1 for inf) we change ood when ood source is depleted
   ood_period: 0.
+  
+evaluator:
+  name: tta_ood
+  ood_scheme: ood
 
 
 postprocessor:
   reload_network: True # reset network at new chunk
+  # padding: 0. : no padding
   padding:
     id: 2.
     ood: 0.5
     self: 1.
-    threshold:  # put x in pad_sef if conf <= threshold, no value will be -inf
+    threshold:  # put x in pad_self if conf <= threshold, no value will be -inf
   ft: # defaults value for ft
     epochs: 0
     lr: 5.0e-4

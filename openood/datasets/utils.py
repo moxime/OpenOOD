@@ -110,15 +110,20 @@ def get_tta_ood_dataloader(config: Config):
     ind_dataset = get_dataloader(config)['test'].dataset
     ind_dataset = MixtureDataset(**{config.dataset.name: ind_dataset})
     IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
-    pad_sizes = {_: int(config.postprocessor.padding.get(_, 0) * chunk_size)
-                 for _ in ('id', 'ood')}
+    pad_aux_sizes = {_: int(config.postprocessor.padding.get(_, 0) * chunk_size)
+                     for _ in ('id', 'ood')}
+
+    for _, s in pad_aux_sizes.items():
+        if s < 0:  # -1: stratified
+            pad_aux_sizes[_] = ood_config.batch_size
 
     dset_dict = {}
-    dataloader_dict = {'padding': {'id': DataLoader(get_dataloader(config)['train'].dataset,
-                                                    shuffle=True,
-                                                    num_workers=ood_config.num_workers,
-                                                    drop_last=True,
-                                                    batch_size=pad_sizes['id'])}}
+    dataloader_dict = {'aux': {'id': DataLoader(get_dataloader(config)['train'].dataset,
+                                                shuffle=True,
+                                                num_workers=ood_config.num_workers,
+                                                drop_last=True,
+                                                batch_size=pad_aux_sizes['id'])}},
+
     data_aux_preprocessor = TestStandardPreProcessor(config)
 
     if ood_config.padding and ood_config.padding.datasets:
@@ -136,12 +141,12 @@ def get_tta_ood_dataloader(config: Config):
             padding_subssets[dataset_name] = dataset
 
         padding_set = MixtureDataset(**padding_subssets)
-        dataloader_dict['padding']['ood'] = DataLoader(padding_set,
-                                                       sampler=MixtureTimeSampler(
-                                                           padding_set, period=1),
-                                                       num_workers=ood_config.num_workers,
-                                                       drop_last=True,
-                                                       batch_size=pad_sizes['ood'])
+        dataloader_dict['aux']['ood'] = DataLoader(padding_set,
+                                                   sampler=MixtureTimeSampler(
+                                                       padding_set, period=1),
+                                                   num_workers=ood_config.num_workers,
+                                                   drop_last=True,
+                                                   batch_size=pad_aux_sizes['ood'])
 
     for split in ood_config.split_names:
         split_config = ood_config[split]

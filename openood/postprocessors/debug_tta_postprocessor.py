@@ -81,6 +81,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         if self.setup_flag:
             return
         super().setup(net, id_loader_dict, ood_loader_dict)
+        self.loss = timedfunc('loss')(self.loss)
 
         print('ID LOADER DICT')
         _unfold_(id_loader_dict)
