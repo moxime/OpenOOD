@@ -73,11 +73,11 @@ class TTAOODEvaluator(OODEvaluator):
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            padding_id_dl = id_ood_data_loaders.get('padding', {}).get('id')
-            padding_ood_dl = id_ood_data_loaders.get('padding', {}).get('ood')
+            aux_id_dl = id_ood_data_loaders.get('padding', {}).get('id')
+            aux_ood_dl = id_ood_data_loaders.get('padding', {}).get('ood')
             pred, conf, label = postprocessor.inference(net, id_ood_dl,
-                                                        padding_id_dl=padding_id_dl,
-                                                        padding_ood_dl=padding_ood_dl,
+                                                        aux_id_dl=aux_id_dl,
+                                                        aux_ood_dl=aux_ood_dl,
                                                         epochs=tta_epochs)
 
             for epoch in pred:

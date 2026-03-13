@@ -19,6 +19,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().__init__(config)
         self.batch_size = self.config.ood_dataset.batch_size
 
+        self.stratified = [_ for _, s in self.pad_sizes.items() if s < 0]
+        self.pad_sizes.update({_: config.ood_dataset.batch_size for _ in self.stratified})
+
         self.setup_flag = False
         self.ft_args = self.config.postprocessor.ft
         self.lr = self.ft_args.lr
@@ -52,6 +55,18 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
+
+    def next_aux_minibatch(self, where):
+
+        assert where in self.aux_dls, where
+        try:
+            return next(self._aux_iters[where])
+        except AttributeError:
+            self._aux_iters = {}
+        except (KeyError, StopIteration):
+            self._aux_iters[where] = iter(self.aux_dls[where])
+
+        return self.next_aux_minibatch(where)
 
     def alternate_loss(self, logits, features, labels, net):
 
