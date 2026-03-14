@@ -27,7 +27,7 @@ class TTAOODEvaluator(OODEvaluator):
         super(TTAOODEvaluator, self).__init__(config)
         self.tta_epochs = config.postprocessor.ft.get('epochs', 0)
 
-        self.ood_period = config.evaluator.get('ood_period', 0)
+        self.ood_period = config.pipeline.get('ood_period', 0)
         print('ood_period set to {}'.format(self.ood_period))
 
     def eval_ood(self,

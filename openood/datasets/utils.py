@@ -97,7 +97,7 @@ def get_tta_ood_dataloader(config: Config):
     ood_config = config.ood_dataset
     # specify custom dataset class
     CustomDataset = eval(ood_config.dataset_class)
-    ood_period = config.evaluator.ood_period
+    ood_period = config.pipeline.ood_period
     chunk_size = config.pipeline.chunk_size
     ood_ratio = config.pipeline.ood_ratio
     if ood_period < 0:
