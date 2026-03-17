@@ -123,6 +123,6 @@ python main.py --config configs/datasets/$dataset/$dataset.yml \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
-       --evaluator.ood_period 1. \
+       --pipeline.ood_period 1. \
        --pipeline.ood_ratio 0.1 \
        "$@"
