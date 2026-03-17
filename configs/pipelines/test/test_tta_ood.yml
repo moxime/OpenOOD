@@ -1,4 +1,4 @@
-exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{evaluator.ood_period}'_'@{postprocessor.ft.epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
+exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{pipeline.ood_period}'_'@{postprocessor.ft.epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
 output_dir: ./results/tta/
 save_output: True
 merge_option: default # disabled if 'save_output' is False
@@ -39,7 +39,7 @@ evaluator:
 
 postprocessor:
   reload_network: True # reset network at new chunk
-  # padding: 0. : no padding
+  # padding: 0. : no padding, -1: stratified
   padding:
     id: 2.
     ood: 0.5

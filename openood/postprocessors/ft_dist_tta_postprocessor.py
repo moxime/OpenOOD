@@ -62,29 +62,14 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if epoch in (0, epochs//2):
             self.reload_network(net)
 
+        super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
         n_mix = len(conf) if epoch < epochs//2 else int((conf < self.pad_thresholds['self']).sum())
-
-        if 'id' in self.pad_dls:
-            batch = self.next_pad_batch('id')
-            data = batch['data'].cuda()
-            pred = batch['label'].cuda()
-            conf = torch.inf * torch.ones_like(pred)
-            self.update_pad_buffers(data, conf, pred, where='id')
-
-        if 'ood' in self.pad_dls and not epoch:
-
-            batch = self.next_pad_batch('ood')
-
-            data = batch['data'].cuda()
-            pred, conf = self.postprocess(net, data)
-            self.update_pad_buffers(data, conf, pred, where='ood')
 
         self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
         self.n_samples['mix'] = n_mix
-
         self.n_samples['total'] = sum(self.n_samples.values())
-        self.n_samples['original'] = self.n_samples['id']
-        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['id']
+        self.n_samples['original'] = self.n_samples.get('id', 0)
+        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['original']
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
