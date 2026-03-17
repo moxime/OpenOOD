@@ -122,7 +122,7 @@ def get_tta_ood_dataloader(config: Config):
                                                 shuffle=True,
                                                 num_workers=ood_config.num_workers,
                                                 drop_last=True,
-                                                batch_size=pad_aux_sizes['id'])}},
+                                                batch_size=pad_aux_sizes['id'])}}
 
     data_aux_preprocessor = TestStandardPreProcessor(config)
 

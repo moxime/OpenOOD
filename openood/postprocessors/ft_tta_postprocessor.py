@@ -19,8 +19,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().__init__(config)
         self.batch_size = self.config.ood_dataset.batch_size
 
-        self.stratified = [_ for _, s in self.pad_sizes.items() if s < 0]
-        self.pad_sizes.update({_: config.ood_dataset.batch_size for _ in self.stratified})
+        self.stratified = [_ for _ in ('id', 'ood') if self.config.postprocessor.padding.get(_, 0) < 0]
 
         self.setup_flag = False
         self.ft_args = self.config.postprocessor.ft
@@ -30,10 +29,13 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
-    def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         if self.setup_flag:
             return
-        super().setup(net, id_loader_dict, ood_loader_dict)
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
+
+        for _ in self.stratified:
+            self.aux_dls[_] = id_ood_loader_dict['aux'][_]
 
         self.loss = MarginCrossEntropy(margin=self.config.network.margin, reduction='none')
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
@@ -56,9 +58,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
+    def reset(self, net):
+        pass
+
     def next_aux_minibatch(self, where):
 
-        assert where in self.aux_dls, where
+        assert where in self.stratified, '{} is ot stratified'.format(where)
         try:
             return next(self._aux_iters[where])
         except AttributeError:
@@ -138,8 +143,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
-
-            original_loss = self.loss(logits, pred)
+            if self.n_samples['original']:
+                original_loss = self.loss(logits, pred)
+            else:
+                original_loss = torch.zeros_like(conf)
 
             alternate_loss = self.alternate_loss(logits=logits, features=features,
                                                  labels=pred, net=net)
@@ -153,7 +160,19 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             self.optimizer.zero_grad()
 
-            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean()
+            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean() * 2
+
+            for _ in self.stratified:
+                batch_ = self.next_aux_minibatch(_)
+                data = batch_['data'].cuda()
+                logits, features = net(data, return_feature=True)
+                if _ == 'ood':
+                    raise NotImplementedError
+                else:
+                    pred = batch_['label'].cuda()
+                    stratified_loss = self.loss(logits, pred)
+
+                loss += stratified_loss.mean()
 
             loss.backward()
 

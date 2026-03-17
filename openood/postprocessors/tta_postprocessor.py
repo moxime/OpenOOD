@@ -30,6 +30,14 @@ class PadBuffer(deque):
             return 1
         return 0
 
+    def empy(self):
+
+        while True:
+            try:
+                self.pop()
+            except IndexError:
+                break
+
 
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
@@ -43,8 +51,10 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.chunk_size = self.config.pipeline.chunk_size
 
+        pad_aux = [_ for _ in ('self', 'id', 'ood') if self.config.postprocessor.padding.get(_, 0) > 0]
+
         self.pad_sizes = {_: int(self.config.postprocessor.padding.get(_, 0) * self.chunk_size)
-                          for _ in ('self', 'id', 'ood')}
+                          for _ in pad_aux}
 
         self.pad_thresholds = dict(self=-np.inf, id=np.inf, ood=np.inf)
 
@@ -61,12 +71,18 @@ class TTAPostprocessor(BasePostprocessor):
         training id dataset
 
         """
+
+        aux_dls = id_ood_loader_dict['aux']
+        self.aux_dls = {_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes}
+        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_])
+                            for _ in self.pad_sizes}
+
         pass
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
 
-    def reset(self, net, data_loader, aux_id_dl=None, aux_ood_dl=None):
+    def reset(self, net):
         """reset is done at each new "experiment" (dataset)
 
         for instance, if postprocessor manages an history dict, this
@@ -76,25 +92,19 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.reload_network(net)
 
-        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_])
-                            for _ in ('self', 'ood', 'id')}
-
-        self.pad_dls = {}
-        if aux_id_dl and self.pad_sizes['id'] > 0:
-            self.pad_dls['id'] = aux_id_dl
-        if aux_ood_dl and self.pad_sizes['ood'] > 0:
-            self.pad_dls['ood'] = aux_ood_dl
+        for _ in self.pad_buffers:
+            self.pad_buffers[_].empty()
 
     def next_pad_batch(self, where):
 
-        assert where in self.pad_dls, where
+        assert where in self.pad_buffers, '{} is not used for padding'.format(where)
 
         try:
-            return next(self._pad_iters[where])
+            return next(self._aux_iters[where])
         except AttributeError:
-            self._pad_iters = {}
+            self._aux_iters = {}
         except (KeyError, StopIteration):
-            self._pad_iters[where] = iter(self.pad_dls[where])
+            self._aux_iters[where] = iter(self.aux_dls[where])
 
         return self.next_pad_batch(where)
 
@@ -109,8 +119,6 @@ class TTAPostprocessor(BasePostprocessor):
 
         """
         n = 0
-        if where in self.stratified:
-            return 0
         for x, s, y in zip(data, conf, pred):
             n += self.pad_buffers[where].append(data=x, pred=y, conf=s, where=where)
 
@@ -123,12 +131,32 @@ class TTAPostprocessor(BasePostprocessor):
         if self.reload_network_at_chunk:
             self.reload_network(net)
 
+        for _ in ('id', 'ood'):
+            if _ not in self.pad_buffers:
+                continue
+            batch = self.next_pad_batch(_)
+            data = batch['data'].cuda()
+            if _ == 'id':
+                pred = batch['label'].cuda()
+                conf = torch.inf * torch.ones_like(pred)
+            else:
+                pred, conf = self.postprocess(net, data)
+
+            self.update_pad_buffers(data, conf, pred, where=_)
+
     def calculate_conf(self, epoch=0, epochs=0):
 
         # when do we calculate conf
         return epoch in (0, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
+        self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
+        self.n_samples['mix'] = len(conf)
+
+        self.n_samples['total'] = sum(self.n_samples.values())
+        self.n_samples['original'] = self.n_samples.get('id', 0)
+        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['original']
 
         return
 
@@ -203,14 +231,12 @@ class TTAPostprocessor(BasePostprocessor):
     def inference(self,
                   net: nn.Module,
                   data_loader: DataLoader,
-                  padding_id_dl=None,
-                  padding_ood_dl=None,
                   epochs=0,
                   progress: bool = True):
 
         outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
-        self.reset(net, data_loader, aux_id_dl=padding_id_dl, aux_ood_dl=padding_ood_dl)
+        self.reset(net)
 
         progress_bar = tqdm(data_loader,
                             dynamic_ncols=True,
