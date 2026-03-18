@@ -103,35 +103,77 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss = {}
             where = np.array(kw['where'])
             w_loss = kw['w_loss'].detach().cpu().numpy()
-            loss['o'] = kw['original_loss'].detach().cpu().numpy()
-            loss['a'] = kw['alternate_loss'].detach().cpu().numpy()
+            if 'stratified_loss_id' in kw:
+                loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
+            else:
+                loss['o'] = kw['original_loss'].detach().cpu().numpy() * w_loss[0]
+            loss['a'] = kw['alternate_loss'].detach().cpu().numpy() * w_loss[1]
+
         except KeyError:
             return
 
         wheres, wherecount = np.unique(where, return_counts=True)
         print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
-        w_loss_w = {}
+        loss_w = {}
         for w in wheres:
-            w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
-        means = dict(o=w_loss.mean(-1)[0], a=w_loss.mean(-1)[1])
-        means['r'] = means['o'] / means['a']
-        print('[weights] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**means))
+            for i, l in enumerate('oa'):
+                loss_w['{}_{}'.format(w, l)] = w_loss[i, where == w]
+            print('{}: {:.2f}, {:.2f}'.format(w, loss_w['{}_{}'.format(w, 'o')].mean(),
+                                              loss_w['{}_{}'.format(w, 'a')].mean()))
+        w_means = dict(o=w_loss.mean(-1)[0], a=w_loss.mean(-1)[1])
+        w_means['r'] = w_means['o'] / w_means['a']
+        print('[weights] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
 
         if hasattr(self, 'n_samples'):
             print(' -- '.join('{}: {}'.format(*t) for t in self.n_samples.items()))
 
         loss_means = {}
         for row, k in enumerate(loss):
-            loss_means[k] = (loss[k] * w_loss[row]).sum() / w_loss.size * 2
+            loss_means[k] = loss[k].mean()
 
         if 'stratified_loss_id' in kw:
             loss_means['o'] = kw['stratified_loss_id'].mean()
 
-        loss_means['r'] = loss_means['o'] / loss_means['a']
+        loss_means['r'] = loss_means['a'] / loss_means['o']
 
-        print('[loss] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**loss_means))
+        print('[loss] a/o = {a:.2g}/{o:.2g}={r:.2g}'.format(**loss_means))
+
+        try:
+            if epoch != self._inspected_epoch:
+                print('*** epoch {} chunk sumup'.format(self._inspected_epoch))
+
+                for _ in self._inspected_loss:
+                    self._inspected_loss[_] = self._inspected_loss[_].mean()
+                for _ in self._inspected_loss_w:
+                    self._inspected_loss_w[_] = self._inspected_loss_w[_].mean()
+                self._inspected_loss['r'] = self._inspected_loss['a'] / self._inspected_loss['o']
+                print('[chunk loss] a/o = {a:.3g}/{o:.3g}={r:.3g}'.format(**self._inspected_loss))
+                print('[chunk weights]', ' -- '.join('{}:{:.3g}'.format(*t)
+                                                     for t in self._inspected_loss_w.items()))
+
+                wheres, wherecount = np.unique(self._inspected_where, return_counts=True)
+                print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
+
+                self._inspected_epoch = epoch
+                self._inspected_loss = {}
+                self._inspected_loss_w = {}
+                self._inspected_where = np.array([])
+
+            for _ in loss:
+                self._inspected_loss[_] = np.hstack([self._inspected_loss.setdefault(_, np.array([])),
+                                                     loss[_]])
+            for _ in loss_w:
+                self._inspected_loss_w[_] = np.hstack([self._inspected_loss_w.setdefault(_, np.array([])),
+                                                       loss_w[_]])
+
+            self._inspected_where = np.hstack([self._inspected_where, where])
+
+        except AttributeError:
+            self._inspected_epoch = epoch
+            self._inspected_loss = {}
+            self._inspected_loss_w = {}
+            self._inspected_where = np.array([])
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
