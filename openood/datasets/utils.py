@@ -141,12 +141,13 @@ def get_tta_ood_dataloader(config: Config):
             padding_subssets[dataset_name] = dataset
 
         padding_set = MixtureDataset(**padding_subssets)
-        dataloader_dict['aux']['ood'] = DataLoader(padding_set,
-                                                   sampler=MixtureTimeSampler(
-                                                       padding_set, period=1),
-                                                   num_workers=ood_config.num_workers,
-                                                   drop_last=True,
-                                                   batch_size=pad_aux_sizes['ood'])
+        if pad_aux_sizes['ood'] > 0.:
+            dataloader_dict['aux']['ood'] = DataLoader(padding_set,
+                                                       sampler=MixtureTimeSampler(
+                                                           padding_set, period=1),
+                                                       num_workers=ood_config.num_workers,
+                                                       drop_last=True,
+                                                       batch_size=pad_aux_sizes['ood'])
 
     for split in ood_config.split_names:
         split_config = ood_config[split]
