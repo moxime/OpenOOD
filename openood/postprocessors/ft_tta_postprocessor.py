@@ -154,15 +154,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
             inspection_dict.update(original_loss=original_loss, alternate_loss=alternate_loss)
             # loss_weights of size 2 * batch_size
             p_ = zip(data, logits, features, pred, conf, where)
-            w_loss = torch.tensor([self.loss_weights(*p, epoch, epochs)
+            weights = torch.tensor([self.loss_weights(*p, epoch, epochs)
                                    for p in p_]).T.cuda()
 
-            inspection_dict.update(w_loss=w_loss)
+            inspection_dict.update(weights=weights)
 
             self.optimizer.zero_grad()
 
-            loss = (original_loss * w_loss[0]).mean()
-            loss += (alternate_loss * w_loss[1]).mean()
+            loss = (original_loss * weights[0]).mean()
+            loss += (alternate_loss * weights[1]).mean()
 
             for _ in self.stratified:
                 batch_ = self.next_aux_minibatch(_)
