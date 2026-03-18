@@ -26,7 +26,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_alt = net.get_fc_layer().weight.detach().mean(0)
 
-    def alternate_loss(self, logits, features, labels, net):
+    def alternate_loss(self, logits, features, net):
 
         return features.square().sum(-1)
 
