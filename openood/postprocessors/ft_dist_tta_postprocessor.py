@@ -42,7 +42,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if where == 'id':
             return (self.n_samples['total'] / self.n_samples['original'], 0)
 
-        alpha_alt = self.n_samples['total'] / self.n_samples['alt']
+        alpha_alt = self.n_samples['total'] / (self.n_samples['alt'] + 1e-6)
         if where in ('ood', 'self'):
             return (0., alpha_alt * self.beta)
 
@@ -65,11 +65,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
         n_mix = len(conf) if epoch < epochs//2 else int((conf < self.pad_thresholds['self']).sum())
 
-        self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
         self.n_samples['mix'] = n_mix
-        self.n_samples['total'] = sum(self.n_samples.values())
-        self.n_samples['original'] = self.n_samples.get('id', 0)
-        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['original']
+        self.n_samples['alt'] -= (len(conf) - n_mix)
+
+        """
+        n_samples['total', 'original', 'pad*'] remain the same as the one calculated in super()
+        
+        """
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
