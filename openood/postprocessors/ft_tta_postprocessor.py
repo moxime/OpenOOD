@@ -75,7 +75,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return self.next_aux_minibatch(where)
 
-    def alternate_loss(self, logits, features, labels, net):
+    def alternate_loss(self, logits, features, net):
 
         return uniform_ce(logits)
 
@@ -149,8 +149,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 original_loss = torch.zeros_like(conf)
 
-            alternate_loss = self.alternate_loss(logits=logits, features=features,
-                                                 labels=pred, net=net)
+            alternate_loss = self.alternate_loss(logits=logits, features=features, net=net)
 
             inspection_dict.update(original_loss=original_loss, alternate_loss=alternate_loss)
             # loss_weights of size 2 * batch_size
@@ -170,13 +169,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
                 if _ == 'ood':
-                    raise NotImplementedError
-                else:
+                    w = self.beta
+                    stratified_loss = self.alternate_loss(logits, features, net)
+                elif _ == 'id':
+                    w = 1
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
                 inspection_dict.update({'stratified_loss_{}'.format(_): stratified_loss})
-                loss += stratified_loss.mean()
+                loss += (w * stratified_loss).mean()
 
             loss.backward()
 
