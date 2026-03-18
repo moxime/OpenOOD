@@ -89,28 +89,49 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return (0., self.beta)
 
-    def inspect_minibatch(self, where=None, w_loss=None, epoch=0, epochs=0, **kw):
+    def inspect_minibatch(self, epoch=0, epochs=0, **kw):
         """
         implement this methd in child class for debug purpose
         """
         if not hasattr(self, '_debug'):
             return
 
-        if where is None or not self.calculate_conf(epoch, epochs):
+        if not self.calculate_conf(epoch, epochs):
+            return
+
+        try:
+            loss = {}
+            where = np.array(kw['where'])
+            w_loss = kw['w_loss'].detach().cpu().numpy()
+            loss['o'] = kw['original_loss'].detach().cpu().numpy()
+            loss['a'] = kw['alternate_loss'].detach().cpu().numpy()
+        except KeyError:
             return
 
         wheres, wherecount = np.unique(where, return_counts=True)
         print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
-        where = np.array(where)
         w_loss_w = {}
         for w in wheres:
             w_loss_w[w] = w_loss[:, where == w].mean(-1)
             print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
-        means = w_loss.mean(-1)
-        print('orig: {:.2g} x {:.2g} = alt: {:.2g}'.format(means[0], means[1] / means[0], means[1]))
+        means = dict(o=w_loss.mean(-1)[0], a=w_loss.mean(-1)[1])
+        means['r'] = means['o'] / means['a']
+        print('[weights] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**means))
+
         if hasattr(self, 'n_samples'):
-            print(self.n_samples)
+            print(' -- '.join('{}: {}'.format(*t) for t in self.n_samples.items()))
+
+        loss_means = {}
+        for row, k in enumerate(loss):
+            loss_means[k] = (loss[k] * w_loss[row]).sum() / w_loss.size * 2
+
+        if 'stratified_loss_id' in kw:
+            loss_means['o'] = kw['stratified_loss_id'].mean()
+
+        loss_means['r'] = loss_means['o'] / loss_means['a']
+
+        print('[loss] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**loss_means))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -134,10 +155,14 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
+            inspection_dict = {}
+
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
             conf = batch['conf'].cuda()
             where = batch['where']
+
+            inspection_dict.update(where=where)
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
@@ -151,12 +176,13 @@ class FTTTAPostprocessor(TTAPostprocessor):
             alternate_loss = self.alternate_loss(logits=logits, features=features,
                                                  labels=pred, net=net)
 
+            inspection_dict.update(original_loss=original_loss, alternate_loss=alternate_loss)
             # loss_weights of size 2 * batch_size
             p_ = zip(data, logits, features, pred, conf, where)
             w_loss = torch.tensor([self.loss_weights(*p, epoch, epochs)
                                    for p in p_]).T.cuda()
 
-            self.inspect_minibatch(where=where, w_loss=w_loss, epoch=epoch, epochs=epochs)
+            inspection_dict.update(w_loss=w_loss)
 
             self.optimizer.zero_grad()
 
@@ -172,6 +198,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
+                inspection_dict.update({'stratified_loss_{}'.format(_): stratified_loss})
                 loss += stratified_loss.mean()
 
             loss.backward()
@@ -181,3 +208,5 @@ class FTTTAPostprocessor(TTAPostprocessor):
             #     self._clipped_grad += 1
             # self._grad += 1
             self.optimizer.step()
+
+            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
