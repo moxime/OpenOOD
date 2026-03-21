@@ -91,23 +91,27 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return (0., self.beta)
 
-    def inspect_minibatch(self, epoch=0, epochs=0, **kw):
+    def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
         """
         implement this methd in child class for debug purpose
         """
         if not hasattr(self, '_debug'):
             return
 
-        if not self.calculate_conf(epoch, epochs):
-            return
-
         if not hasattr(self, '_inspector'):
             self._inspector = BatchInspector()
 
-        if hasattr(self, 'n_samples'):
-            print('[mb samples]', ' -- '.join('{}:{}'.format(*t) for t in self.n_samples.items()))
+        self._inspector.epoch = epoch
+        self._inspector.iterations += 1
+        if self.calculate_conf(epoch, epochs):
+            self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
-        self._inspector.update_mb(epoch, **kw)
+        if flush and epoch == epochs - 1:
+            print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
+                                                                    epochs,
+                                                                    self._inspector.iterations / epochs))
+            if hasattr(self, 'n_samples'):
+                print('[chunk samples]', ' -- '.join('{}:{}'.format(*t) for t in self.n_samples.items()))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -187,4 +191,5 @@ class FTTTAPostprocessor(TTAPostprocessor):
             # self._grad += 1
             self.optimizer.step()
 
-            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
+            flush = (i == len(minibatch_loader) - 1)
+            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs, flush=flush)

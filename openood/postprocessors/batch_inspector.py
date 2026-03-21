@@ -3,9 +3,41 @@ import numpy as np
 
 class BatchInspector():
 
-    epoch = -1
+    _epoch = -1
+    _iterations = {}
 
-    def empty(self):
+    loss = {}
+    weights = {}
+    where = np.array([])
+
+    @property
+    def iterations(self):
+
+        prev = self._iterations.get(self.epoch-1, 0)
+        return self._iterations.get(self.epoch, prev)
+
+    @iterations.setter
+    def iterations(self, v):
+        self._iterations[self.epoch] = v
+
+    @property
+    def epoch(self):
+        return self._epoch
+
+    @epoch.setter
+    def epoch(self, e):
+        if e == self.epoch:
+            return
+        self._epoch = e
+        if not self._epoch:
+            self._iterations = {}
+
+    def flush(self):
+        self.means()
+        self.print()
+        self.reset()
+
+    def reset(self):
         self.loss = {}
         self.weights = {}
         self.where = np.array([])
@@ -29,10 +61,18 @@ class BatchInspector():
 
     def print(self):
         print('\n*** *** *** epoch {} chunk sumup *** *** ***'.format(self.epoch))
+        n = len(self.loss['a'])
         for _ in self.loss_:
-            if 'a' in self.loss_[_]:
-                self.loss_[_]['a/o'] = self.loss_[_]['a'] / self.loss_[_]['o']
-            print('[chunk {} loss]'.format(_), end=' ')
+            kept = [t[0] for t in self.loss_[_].items() if t[1] > 0]
+            if len(kept) == 2:
+                if kept[0].startswith('a'):
+                    k_a = kept[0]
+                    k_o = kept[1]
+                else:
+                    k_a = kept[1]
+                    k_o = kept[0]
+                self.loss_[_]['{}/{}'.format(k_a, k_o)] = self.loss_[_][k_a] / self.loss_[_][k_o]
+            print('[chunk {} loss ({})]'.format(_, n), end=' ')
             print(' '.join('{}:{:.3g}'.format(*t) for t in self.loss_[_].items() if t[1] > 0))
 
         print('[chunk weights]', ' -- '.join('{}:{:.3g}'.format(*t)
@@ -43,13 +83,9 @@ class BatchInspector():
 
         print('*** *** ***\n')
 
-    def update_mb(self, epoch, **kw):
-        if epoch != self.epoch:
-            if self.epoch > -1:
-                self.means()
-                self.print()
-            self.empty()
+    def update_mb(self, epoch, epochs, flush=False, **kw):
         self.epoch = epoch
+        self.epochs = epochs
 
         loss = {}
         where = np.array(kw['where'])
@@ -94,3 +130,6 @@ class BatchInspector():
                                         weights[_]])
 
         self.where = np.hstack([self.where, where])
+
+        if flush:
+            self.flush()
