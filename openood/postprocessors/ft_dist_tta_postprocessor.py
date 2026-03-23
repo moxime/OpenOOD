@@ -30,7 +30,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         return features.square().sum(-1)
 
-    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
+    def loss_weights(self, x, label, conf, where, epoch=0, epochs=0):
         """ return loss_weight, alternate_loss_weight for sample x
 
         if mix :
