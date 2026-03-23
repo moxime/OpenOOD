@@ -113,14 +113,14 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
 
 echo "$@" > /dev/stdout
 
-res_dir=$(git branch --show-current)
+git_branch=$(git rev-parse --abbrev-ref HEAD)
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
        configs/datasets/$dataset/"$dataset"_tta_ood.yml \
        configs/preprocessors/base_preprocessor.yml \
        configs/pipelines/test/test_tta_ood.yml \
        configs/postprocessors/$method.yml \
-       --output_dir results/$res_dir \
+       --output_dir results/$git_branch \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
