@@ -29,6 +29,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
 
+        self.filterout_null_weights = True
+
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
@@ -79,7 +81,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return uniform_ce(logits)
 
-    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
+    def loss_weights(self, x, label, conf, where, epoch=0, epochs=0):
         """ return loss_weight, alternate_loss_weight for sample x
 
         where is either id, ood, self, mix
@@ -119,11 +121,17 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-        batch_list = deque([dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())])
+        batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
 
-        # for instance you can create a minibatch_loader
+        if self.filterout_null_weights:
+            # loss_weights of size 2 * chunk_size
+            weights = torch.tensor([self.loss_weights(*p, 'mix', epoch, epochs)
+                                   for p in zip(data, pred, conf)]).T.cuda()
+            kept_data_index = weights.abs().sum(0) > 0
+            batch_list = batch_list[kept_data_index]
 
-        minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers), start=batch_list),
+        minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers),
+                                          start=deque(batch_list)),
                                       shuffle=True,
                                       batch_size=self.batch_size,
                                       drop_last=False)
@@ -157,9 +165,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             inspection_dict.update(original_loss=original_loss, alternate_loss=alternate_loss)
             # loss_weights of size 2 * batch_size
-            p_ = zip(data, logits, features, pred, conf, where)
             weights = torch.tensor([self.loss_weights(*p, epoch, epochs)
-                                   for p in p_]).T.cuda()
+                                   for p in zip(data, pred, conf, where)]).T.cuda()
 
             inspection_dict.update(weights=weights)
 
