@@ -92,8 +92,9 @@ class BatchInspector():
         weights = kw['weights'].detach().cpu().numpy()
         weights = {'o': weights[0], 'a': weights[1]}
         if 'stratified_loss_id' in kw:
-            strat_loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
-            start_weights['o'] = np.ones_like(strat_loss['o'])
+            pass
+            # strat_loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
+            # start_weights['o'] = np.ones_like(strat_loss['o'])
         else:
             loss['o'] = kw['original_loss'].detach().cpu().numpy()
         loss['a'] = kw['alternate_loss'].detach().cpu().numpy()
