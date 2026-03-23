@@ -47,7 +47,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             return (0., alpha_alt * self.beta)
 
         if where == 'mix':
-            if epoch < epochs//2 or conf < self.pad_thresholds['self']:
+            if epoch < epochs//3 or conf < self.pad_thresholds['self']:
                 return (0., alpha_alt * self.beta)
             return (0., 0.)
 
@@ -55,23 +55,21 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
-        return epoch in (0, epochs//2, epochs)
+        return epoch in (0, epochs//3, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
-        if epoch in (0, epochs//2):
+        if epoch in (0, epochs//3):
             self.reload_network(net)
 
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
-        n_mix = len(conf) if epoch < epochs//2 else int((conf < self.pad_thresholds['self']).sum())
+        n_mix = len(conf) if epoch < epochs//3 else int((conf < self.pad_thresholds['self']).sum())
 
         self.n_samples['mix'] = n_mix
         self.n_samples['alt'] -= (len(conf) - n_mix)
 
-        """
-        n_samples['total', 'original', 'pad*'] remain the same as the one calculated in super()
-        
-        """
+        if self.filterout_null_weights:
+            self.n_samples['total'] -= (len(conf) - n_mix)
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
