@@ -113,13 +113,14 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
 
 echo "$@" > /dev/stdout
 
+res_dir=$(git branch --show-current)
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
        configs/datasets/$dataset/"$dataset"_tta_ood.yml \
        configs/preprocessors/base_preprocessor.yml \
        configs/pipelines/test/test_tta_ood.yml \
        configs/postprocessors/$method.yml \
-       --output_dir results/$(git branch --show-current) \
+       --output_dir results/$res_dir \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
