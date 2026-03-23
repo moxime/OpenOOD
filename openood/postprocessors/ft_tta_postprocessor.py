@@ -128,7 +128,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = torch.tensor([self.loss_weights(*p, 'mix', epoch, epochs)
                                    for p in zip(data, pred, conf)]).T.cuda()
             kept_data_index = weights.abs().sum(0) > 0
-            batch_list = batch_list[kept_data_index]
+            batch_list = [_ for _, b in zip(batch_list, kept_data_index) if b]
 
         minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers),
                                           start=deque(batch_list)),
