@@ -226,6 +226,10 @@ class Config(dict):
                     unknown_args.extend(['--' + key, full_value_str])
                     continue
 
+            if value_str.lower() == 'null':
+                self[key] = None
+                continue
+
             if value_type is None:
                 value_type = type(self[key])
 
