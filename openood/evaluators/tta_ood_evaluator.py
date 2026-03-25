@@ -167,7 +167,7 @@ class TTAOODEvaluator(OODEvaluator):
     def _save_scores(self, pred, conf, gt, save_name, epoch=0, epochs=None):
         save_dir = os.path.join(self.config.output_dir, 'scores')
         if epochs:
-            save_dir += '-{:02d}'.format(epoch)
+            save_dir += '-{:03d}'.format(epoch)
         os.makedirs(save_dir, exist_ok=True)
         np.savez(os.path.join(save_dir, save_name),
                  pred=pred,

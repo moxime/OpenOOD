@@ -95,8 +95,10 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in self.pad_buffers:
             self.pad_buffers[_].empty()
 
-    def next_pad_batch(self, where):
-
+    def next_aux_batch(self, where):
+        """
+        fetch next aux batch from aux_dl (recreate iter on stop iteration)
+        """
         assert where in self.pad_buffers, '{} is not used for padding'.format(where)
 
         try:
@@ -106,16 +108,16 @@ class TTAPostprocessor(BasePostprocessor):
         except (KeyError, StopIteration):
             self._aux_iters[where] = iter(self.aux_dls[where])
 
-        return self.next_pad_batch(where)
+        return self.next_aux_batch(where)
 
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
-        """ add x from data to pad_set, depending on conf and predicted label
+        """ add x from data to pad_buffer[where], depending on conf and predicted label
 
         each element is added as a dictionary
 
         {'data': x, 'conf': conf, 'pred': pred, 'where': where}
 
-        where can be 'ood' (knonw ood from ext_padding), 'id' (known id eg from train) or 'self'
+        where can be 'ood' (known ood), 'id' (known id, e.g. from train) or 'self'
 
         """
         n = 0
@@ -134,7 +136,7 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
                 continue
-            batch = self.next_pad_batch(_)
+            batch = self.next_aux_batch(_)
             data = batch['data'].cuda()
             if _ == 'id':
                 pred = batch['label'].cuda()
