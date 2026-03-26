@@ -62,24 +62,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
-
-        self.samples_dist = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
-
-        weights = self.loss_weights(data, conf, pred, 'mix', epoch=epoch, epochs=epochs)
-
-        non_zero = weights.abs().sum(1) > 0
-
-        self.samples_dist['mix'] = int(non_zero.sum())
-
-        self.samples_dist['total'] = sum(self.samples_dist.values())
-
-        if not self.filterout_null_weights:
-            self.samples_dist['total'] += len(conf) - self.samples_dist['mix']
-
-        self.samples_dist['original'] = self.samples_dist.get('id', 0)
-        self.samples_dist['alt'] = self.samples_dist['total'] - self.samples_dist['original']
-
     def next_aux_minibatch(self, where):
 
         assert where in self.stratified, '{} is ot stratified'.format(where)
@@ -109,7 +91,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         return (0., self.beta)
 
     def loss_weights(self, data, conf, pred, where, epoch=0, epochs=0, size_normalization=False):
-        """ returns  a len(data)x2 tensor of original and loss weights """
+        """ returns  a len(data)x2 tensor of original and loss weights
+
+        where can be in (id, ood, mix, self)
+        """
 
         if not isinstance(where, (list, tuple)):
             where = [where for _ in conf]
