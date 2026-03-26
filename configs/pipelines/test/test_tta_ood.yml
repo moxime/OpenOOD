@@ -52,7 +52,7 @@ postprocessor:
     # unfreeze net for possible ft
     # in all, head, penultimate
     unfreeze: penultimate
-
+    only_non_zeros: True
   
 recorder:
   save_scores: True
