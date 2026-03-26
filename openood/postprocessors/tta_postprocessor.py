@@ -153,13 +153,6 @@ class TTAPostprocessor(BasePostprocessor):
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
-        self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
-        self.n_samples['mix'] = len(conf)
-
-        self.n_samples['total'] = sum(self.n_samples.values())
-        self.n_samples['original'] = self.n_samples.get('id', 0)
-        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['original']
-
         return
 
     @torch.no_grad()
@@ -257,6 +250,8 @@ class TTAPostprocessor(BasePostprocessor):
 
             """
             pred = None
+
+            self.iterations_on = {}
 
             for epoch in range(epochs+1):
 

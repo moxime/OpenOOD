@@ -29,7 +29,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
 
-        self.filterout_null_weights = True
+        self.filterout_null_weights = self.ft_args.only_non_zeros
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -62,8 +62,23 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-    def reset(self, net):
-        pass
+    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
+        self.samples_dist = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
+
+        weights = self.loss_weights(data, conf, pred, 'mix', epoch=epoch, epochs=epochs)
+
+        non_zero = weights.abs().sum(1) > 0
+
+        self.samples_dist['mix'] = int(non_zero.sum())
+
+        self.samples_dist['total'] = sum(self.samples_dist.values())
+
+        if not self.filterout_null_weights:
+            self.samples_dist['total'] += len(conf) - self.samples_dist['mix']
+
+        self.samples_dist['original'] = self.samples_dist.get('id', 0)
+        self.samples_dist['alt'] = self.samples_dist['total'] - self.samples_dist['original']
 
     def next_aux_minibatch(self, where):
 
@@ -81,7 +96,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return uniform_ce(logits)
 
-    def loss_weights(self, x, label, conf, where, epoch=0, epochs=0):
+    def losses_weight(self, x, conf, label, where, epoch=0, epochs=0):
         """ return loss_weight, alternate_loss_weight for sample x
 
         where is either id, ood, self, mix
@@ -92,6 +107,17 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return (1., 0.)
 
         return (0., self.beta)
+
+    def loss_weights(self, data, conf, pred, where, epoch=0, epochs=0, size_normalization=False):
+        """ returns  a len(data)x2 tensor of original and loss weights """
+
+        if not isinstance(where, (list, tuple)):
+            where = [where for _ in conf]
+
+        raw_weights = torch.tensor([self.losses_weight(*p, epoch, epochs)
+                                    for p in zip(data, conf, pred, where)]).cuda()
+        if not size_normalization:
+            return raw_weights
 
     def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
         """
@@ -112,23 +138,24 @@ class FTTTAPostprocessor(TTAPostprocessor):
             print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
                                                                     epochs,
                                                                     self._inspector.iterations / epochs))
-            if hasattr(self, 'n_samples'):
-                print('[chunk samples]', ' -- '.join('{}:{}'.format(*t) for t in self.n_samples.items()))
+            print('[chunk samples]', ' -- '.join('{}:{}'.format(*t) for t in self.samples_dist.items()))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
 
         """
+        for _, m in self.max_iterations_on.items():
+            if self.iterations_on[_] >= m:
+                return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
         batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
 
         if self.filterout_null_weights:
-            # loss_weights of size 2 * chunk_size
-            weights = torch.tensor([self.loss_weights(*p, 'mix', epoch, epochs)
-                                   for p in zip(data, pred, conf)]).T.cuda()
-            kept_data_index = weights.abs().sum(0) > 0
-            batch_list = [_ for _, b in zip(batch_list, kept_data_index) if b]
+            # loss_weights of chunk_size x 2
+            batch_weights = self.loss_weights(**mix_batch, epoch=epoch, epochs=epochs)
+            kept_data_index = batch_weights.abs().sum(1) > 0
+            batch_list = [_ for i, _ in zip(kept_data_index, batch_list) if i]
 
         minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers),
                                           start=deque(batch_list)),
@@ -143,6 +170,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
+            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix') + 1
             inspection_dict = {}
 
             data = batch['data'].cuda()
@@ -156,7 +184,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
-            if self.n_samples['original']:
+            if self.samples_dist['original']:
                 original_loss = self.loss(logits, pred)
             else:
                 original_loss = torch.zeros_like(conf)
@@ -165,17 +193,19 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             inspection_dict.update(original_loss=original_loss, alternate_loss=alternate_loss)
             # loss_weights of size 2 * batch_size
-            weights = torch.tensor([self.loss_weights(*p, epoch, epochs)
-                                   for p in zip(data, pred, conf, where)]).T.cuda()
+            batch_weights = self.loss_weights(data, conf, pred, where,
+                                              epoch=epoch, epochs=epochs,
+                                              size_normalization=True).T
 
-            inspection_dict.update(weights=weights)
+            inspection_dict.update(weights=batch_weights)
 
             self.optimizer.zero_grad()
 
-            loss = (original_loss * weights[0]).mean()
-            loss += (alternate_loss * weights[1]).mean()
+            loss = (original_loss * batch_weights[0]).mean()
+            loss += (alternate_loss * batch_weights[1]).mean()
 
             for _ in self.stratified:
+                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_) + 1
                 batch_ = self.next_aux_minibatch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
@@ -193,9 +223,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss.backward()
 
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
-            # if grad_norm > 200:
-            #     self._clipped_grad += 1
-            # self._grad += 1
+            if grad_norm > 200:
+                self._clipped_grad += 1
+            self._grad += 1
             self.optimizer.step()
 
             flush = (i == len(minibatch_loader) - 1)

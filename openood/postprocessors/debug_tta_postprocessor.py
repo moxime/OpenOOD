@@ -111,8 +111,8 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         return n
 
     # @timedfunc('loss weight')
-    def loss_weights(self, x, label, conf, where, epoch=0, epochs=0):
-        w = super().loss_weights(x, label, conf, where, epoch=epoch, epochs=epochs)
+    def losses_weight(self, x, conf, label, where, epoch=0, epochs=0):
+        w = super().losses_weight(x, conf, label, where, epoch=epoch, epochs=epochs)
 
         # if epoch in (epochs // 3, 2 * epochs // 3):
         #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
@@ -136,4 +136,4 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
     @timedfunc('next batch')
     def next_pad_batch(self, *a, **kw):
-        return super().next_pad_batch(*a, **kw)
+        return super().next_aux_batch(*a, **kw)
