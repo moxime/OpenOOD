@@ -11,25 +11,25 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
     def __init__(self, config):
 
         super().__init__(config)
-        assert not self.args or self.args.mu_alt in ('zero', 'mean', None)
-        self.mu_alt = self.args.mu_alt if self.args else None
-        print('*** mu_alt', self.mu_alt)
+        assert not self.args or self.args.mu_ood in ('zero', 'mean', None)
+        self.mu_ood = self.args.mu_ood if self.args else None
+        print('*** mu_ood', self.mu_ood)
 
     def setup(self, net, *a, **kw):
 
         super().setup(net, *a, **kw)
-        if self.mu_alt:
-            if self.mu_alt == 'zero':
-                self.mu_alt = torch.zeros_like(net.get_fc_layer().weight[0])
+        if self.mu_ood:
+            if self.mu_ood == 'zero':
+                self.mu_ood = torch.zeros_like(net.get_fc_layer().weight[0])
             else:
-                self.mu_alt = net.get_fc_layer().weight.detach().mean(0)
+                self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-    def alternate_loss(self, logits, features, net):
+    def adaptation_loss(self, logits, features, net):
 
         return features.square().sum(-1)
 
     def losses_weight(self, x, conf, label, where, epoch=0, epochs=0):
-        """ return loss_weight, alternate_loss_weight for sample x
+        """ return id_loss_weight, adaptation_loss_weight for sample x
 
         if mix :
 
@@ -78,6 +78,6 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
 
-        conf = prob_y.log() + 0.5 * (features - self.mu_alt).square().sum(dim=-1) - b_y - 0.5 * m_y_2
+        conf = prob_y.log() + 0.5 * (features - self.mu_ood).square().sum(dim=-1) - b_y - 0.5 * m_y_2
 
         return pred, conf

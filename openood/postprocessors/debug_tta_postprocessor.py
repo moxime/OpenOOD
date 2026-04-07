@@ -126,9 +126,9 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
     def postprocess(self, *a, **kw):
         return super().postprocess(*a, **kw)
 
-    @timedfunc('alternate loss')
-    def alternate_loss(self, *a, **kw):
-        return super().alternate_loss(*a, **kw)
+    @timedfunc('adaptation loss')
+    def adaptation_loss(self, *a, **kw):
+        return super().adaptation_loss(*a, **kw)
 
     @timedfunc('FT')
     def finetune(self, *a, **kw):

@@ -4,5 +4,6 @@ postprocessor:
   ft:
     epochs: 20
     beta: 1.
+    only_non_zeros: True
   postprocessor_args:
     temperature: 100
