@@ -126,7 +126,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         return n
 
-    def new_chunk(self, net, data):
+    def new_chunk(self, net, data, epochs=0):
         """
         done before postprocessing chunk (data)
         """
@@ -244,7 +244,7 @@ class TTAPostprocessor(BasePostprocessor):
             num_chunk += 1
             data = chunk['data'].cuda()
             label = chunk['label'].cuda()
-            self.new_chunk(net, data)
+            self.new_chunk(net, data, epochs=epochs)
 
             """ Pred calculated here will the kept for all the FT
 

@@ -13,6 +13,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         super().__init__(config)
         assert not self.args or self.args.mu_ood in ('zero', 'mean', None)
         self.mu_ood = self.args.mu_ood if self.args else None
+        self.iterations = self.args.iterations_per_phase
         print('*** mu_ood', self.mu_ood)
 
     def setup(self, net, *a, **kw):
@@ -28,6 +29,24 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         return features.square().sum(-1)
 
+    def new_chunk(self, net, data, epochs=0):
+
+        super().new_chunk(net, data, epochs=epochs)
+
+        if not self.iterations:
+            self.switch_phase = epochs//4
+            return
+
+        padded_mix_size = len(data) + sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
+
+        it_per_epoch = padded_mix_size / self.batch_size
+
+        self.switch_phase = int(np.ceil(self.iterations / it_per_epoch))
+
+        self.max_iterations_on['padded_mix'] = 2 * self.iterations
+
+        assert epochs * it_per_epoch >= 2 * self.iterations
+
     def losses_weight(self, conf=0., where='id', epoch=0, epochs=0, **kw):
         """ return id_loss_weight, adaptation_loss_weight for sample x
 
@@ -38,7 +57,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         - during second half: only if likely ood (conf < sb) """
 
         if where == 'mix':
-            if epoch < epochs//4 or conf < self.pad_thresholds['self']:
+            if epoch < self.switch_phase or conf < self.pad_thresholds['self']:
                 return (0., self.beta)
             return (0., 0.)
 
@@ -48,11 +67,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
-        return epoch in (0, epochs//4, epochs)
+        return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
-        if epoch in (0, epochs//4):
+        if epoch in (0, self.switch_phase):
             self.reload_network(net)
 
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
