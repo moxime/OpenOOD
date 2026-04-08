@@ -45,7 +45,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         self.max_iterations_on['padded_mix'] = 2 * self.iterations
 
-        assert epochs * it_per_epoch >= 2 * self.iterations
+        _s = 'epochs: {} it/epoch: {} it: {}'
+        assert epochs * it_per_epoch >= 2 * self.iterations, _s.format(epochs, it_per_epoch, 2 * self.iterations)
 
     def losses_weight(self, conf=0., where='id', epoch=0, epochs=0, **kw):
         """ return id_loss_weight, adaptation_loss_weight for sample x
