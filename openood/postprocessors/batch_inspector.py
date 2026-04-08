@@ -90,7 +90,7 @@ class BatchInspector():
         loss = {}
         where = np.array(kw['where'])
         weights = kw['weights'].detach().cpu().numpy()
-        weights = {'i': weights[0], 'a': weights[1]}
+        weights = {'i': weights[:, 0], 'a': weights[:, 1]}
         if 'stratified_loss_id' in kw:
             pass
             # strat_loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
@@ -102,13 +102,11 @@ class BatchInspector():
         wheres, wherecount = np.unique(where, return_counts=True)
         print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
-        print('*** where shape', where.shape, 'weights shape', weights['i'].shape)
-
         for l in list(weights):
             for w in wheres:
                 weights['{}_{}'.format(w, l)] = weights[l][where == w]
         for w in wheres:
-            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'o')].mean(),
+            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
                                               weights['{}_{}'.format(w, 'a')].mean()))
 
         w_means = {_: weights[_].mean() for _ in weights}
