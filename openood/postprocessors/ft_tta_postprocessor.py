@@ -129,6 +129,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             batch_list.extend(self.pad_buffers[where])
 
         for d in batch_list:
+            d.pop('weights', None)
             d['weights'] = torch.tensor(self.losses_weight(**d, epoch=epoch, epochs=epochs))
 
         if self.filterout_null_weights:
