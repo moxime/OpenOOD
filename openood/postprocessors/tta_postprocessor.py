@@ -260,11 +260,10 @@ class TTAPostprocessor(BasePostprocessor):
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
                     pred, conf = self.postprocess(net, data, pred=pred)
+                    for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
+                        outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
                 self.init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
-
-                for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
-                    outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
                 if epoch < epochs:
                     with self.finetune_mode(net):
