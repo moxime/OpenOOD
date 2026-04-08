@@ -102,6 +102,8 @@ class BatchInspector():
         wheres, wherecount = np.unique(where, return_counts=True)
         print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
+        print('*** where shape', where.shape, 'weights shape', weights['i'].shape)
+
         for l in list(weights):
             for w in wheres:
                 weights['{}_{}'.format(w, l)] = weights[l][where == w]
