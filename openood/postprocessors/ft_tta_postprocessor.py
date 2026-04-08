@@ -113,12 +113,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """finetune is done  _epochs_ times
 
         """
-        if epoch == 0:
-            last_flushed = False
         for _, m in self.max_iterations_on.items():
             if self.iterations_on.get(_, 0) >= m:
-                self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=not last_flushed)
-                last_flushed = True
+                self.inspect_minibatch(epoch=epoch-1, epochs=epochs)
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}

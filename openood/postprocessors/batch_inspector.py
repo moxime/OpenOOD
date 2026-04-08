@@ -23,6 +23,10 @@ class BatchInspector():
     def epoch(self):
         return self._epoch
 
+    @property
+    def flushed(self):
+        return not self.loss
+
     @epoch.setter
     def epoch(self, e):
         if e == self.epoch:
@@ -34,6 +38,8 @@ class BatchInspector():
         self._iterations[e] = self._iterations[e - 1]
 
     def flush(self):
+        if self.flushed:
+            return
         self.means()
         self.print()
 
