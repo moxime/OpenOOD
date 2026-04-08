@@ -30,7 +30,7 @@ class PadBuffer(deque):
             return 1
         return 0
 
-    def empy(self):
+    def empty(self):
 
         while True:
             try:
