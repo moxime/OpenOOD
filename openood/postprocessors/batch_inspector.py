@@ -90,17 +90,19 @@ class BatchInspector():
         loss = {}
         where = np.array(kw['where'])
         weights = kw['weights'].detach().cpu().numpy()
-        weights = {'o': weights[0], 'a': weights[1]}
+        weights = {'i': weights[0], 'a': weights[1]}
         if 'stratified_loss_id' in kw:
             pass
             # strat_loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
             # start_weights['o'] = np.ones_like(strat_loss['o'])
         else:
-            loss['o'] = kw['original_loss'].detach().cpu().numpy()
-        loss['a'] = kw['alternate_loss'].detach().cpu().numpy()
+            loss['i'] = kw['id_loss'].detach().cpu().numpy()
+        loss['a'] = kw['adaptation_loss'].detach().cpu().numpy()
 
         wheres, wherecount = np.unique(where, return_counts=True)
         print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
+
+        print('*** where shape', where.shape, 'weights shape', weights['i'].shape)
 
         for l in list(weights):
             for w in wheres:
@@ -109,9 +111,9 @@ class BatchInspector():
             print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'o')].mean(),
                                               weights['{}_{}'.format(w, 'a')].mean()))
 
-        w_means = dict(o=weights['o'].mean(), a=weights['a'].mean())
-        w_means['r'] = w_means['o'] / w_means['a']
-        print('[weights] orig/alt = {o:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
+        w_means = {_: weights[_].mean() for _ in weights}
+        w_means['r'] = w_means['i'] / w_means['a']
+        print('[weights] i/a = {i:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
 
         loss_means = {}
         for row, k in enumerate(loss):

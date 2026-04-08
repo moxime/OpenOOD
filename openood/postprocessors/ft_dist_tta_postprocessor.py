@@ -28,7 +28,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         return features.square().sum(-1)
 
-    def losses_weight(self, x, conf, label, where, epoch=0, epochs=0):
+    def losses_weight(self, conf=0., where='id', epoch=0, epochs=0, **kw):
         """ return id_loss_weight, adaptation_loss_weight for sample x
 
         if mix :
@@ -42,7 +42,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 return (0., self.beta)
             return (0., 0.)
 
-        return super().losses_weight(x, conf, label, where, epoch, epochs)
+        return super().losses_weight(conf=conf, where=where, epoch=epoch, epochs=epochs, **kw)
 
         raise ValueError('{} is not a known placeholder for sample'.format(where))
 

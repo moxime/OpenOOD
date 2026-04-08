@@ -111,9 +111,8 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         return n
 
     # @timedfunc('loss weight')
-    def losses_weight(self, x, conf, label, where, epoch=0, epochs=0):
-        w = super().losses_weight(x, conf, label, where, epoch=epoch, epochs=epochs)
-
+    def losses_weight(self, **kw):
+        w = super().losses_weight(**kw)
         # if epoch in (epochs // 3, 2 * epochs // 3):
         #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
         return w

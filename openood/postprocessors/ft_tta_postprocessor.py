@@ -81,7 +81,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return uniform_ce(logits)
 
-    def losses_weight(self, data, conf, label, where, epoch=0, epochs=0, **kw):
+    def losses_weight(self, data=None, conf=0., pred=None, where='id', epoch=0, epochs=0):
         """ return loss_weight, adaptation_loss_weight for sample data
 
         where is either id, ood, self, mix
@@ -119,7 +119,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
         for _, m in self.max_iterations_on.items():
-            if self.iterations_on[_] >= m:
+            if self.iterations_on.get(_, 0) >= m:
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
@@ -157,7 +157,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix') + 1
+            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix', 0) + 1
             inspection_dict = {}
 
             data = batch['data'].cuda()
@@ -185,7 +185,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(original_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
+            inspection_dict.update(id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
 
             self.optimizer.zero_grad()
 
@@ -194,7 +194,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
-                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_) + 1
+                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_, 0) + 1
                 batch_ = self.next_aux_minibatch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
