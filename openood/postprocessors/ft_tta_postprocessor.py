@@ -185,7 +185,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(original_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
+            inspection_dict.update(id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
 
             self.optimizer.zero_grad()
 
