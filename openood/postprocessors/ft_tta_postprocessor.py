@@ -104,7 +104,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._inspector = BatchInspector()
 
         self._inspector.epoch = epoch
-        self._inspector.iterations += 1
+        if kw:
+            self._inspector.iterations += 1
         if self.calculate_conf(epoch, epochs):
             self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
@@ -119,8 +120,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         for _, m in self.max_iterations_on.items():
             if self.iterations_on.get(_, 0) >= m:
-                if epoch == epochs - 1:
-                    self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
+                flush = epoch == epochs - 1
+                self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=flush)
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}

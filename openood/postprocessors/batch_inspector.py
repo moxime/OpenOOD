@@ -4,7 +4,7 @@ import numpy as np
 class BatchInspector():
 
     _epoch = -1
-    _iterations = {}
+    _iterations = {-1: 0}
 
     loss = {}
     weights = {}
@@ -13,8 +13,7 @@ class BatchInspector():
     @property
     def iterations(self):
 
-        prev = self._iterations.get(self.epoch-1, 0)
-        return self._iterations.get(self.epoch, prev)
+        return self._iterations.get(self.epoch, 0)
 
     @iterations.setter
     def iterations(self, v):
@@ -29,8 +28,7 @@ class BatchInspector():
         if e == self.epoch:
             return
         self._epoch = e
-        if not self._epoch:
-            self._iterations = {}
+        self._iterations[e] = self._iterations[e - 1]
 
     def flush(self):
         self.means()
