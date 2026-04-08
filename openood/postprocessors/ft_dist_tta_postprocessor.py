@@ -45,6 +45,9 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         self.max_iterations_on['padded_mix'] = 2 * self.iterations
 
+        if not epochs:
+            return
+
         _s = 'epochs: {} it/epoch: {} it: {}'
         assert epochs * it_per_epoch >= 2 * self.iterations, _s.format(epochs, it_per_epoch, 2 * self.iterations)
 
