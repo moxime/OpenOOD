@@ -106,7 +106,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self._inspector.epoch = epoch
         if kw:
             self._inspector.iterations += 1
-        if self.calculate_conf(epoch, epochs):
+        if self.calculate_conf(epoch, epochs) or epoch == epochs - 1:
             self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
