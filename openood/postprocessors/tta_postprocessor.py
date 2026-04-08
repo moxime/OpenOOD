@@ -130,6 +130,7 @@ class TTAPostprocessor(BasePostprocessor):
         """
         done before postprocessing chunk (data)
         """
+        print('**************************', epochs)
         if self.reload_network_at_chunk:
             self.reload_network(net)
 
