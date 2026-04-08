@@ -91,7 +91,7 @@ class BatchInspector():
 
         print('*** *** ***\n')
 
-    def update_mb(self, epoch, epochs, **kw):
+    def update_mb(self, epoch, epochs, printout=False, **kw):
         self.epoch = epoch
         self.epochs = epochs
 
@@ -113,18 +113,21 @@ class BatchInspector():
         loss['a'] = kw['adaptation_loss'].detach().cpu().numpy()
 
         wheres, wherecount = np.unique(where, return_counts=True)
-        print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
+        if printout:
+            print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
         for l in list(weights):
             for w in wheres:
                 weights['{}_{}'.format(w, l)] = weights[l][where == w]
         for w in wheres:
-            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
-                                              weights['{}_{}'.format(w, 'a')].mean()))
+            if printout:
+                print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
+                                                  weights['{}_{}'.format(w, 'a')].mean()))
 
         w_means = {_: weights[_].mean() for _ in weights}
         w_means['r'] = w_means['i'] / w_means['a']
-        print('[weights] i/a = {i:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
+        if printout:
+            print('[weights] i/a = {i:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
 
         loss_means = {}
         for row, k in enumerate(loss):
@@ -135,7 +138,8 @@ class BatchInspector():
 
         loss_means['r'] = loss_means['a'] / loss_means['o']
 
-        print('[loss] a/o = {a:.2g}/{o:.2g}={r:.2g}'.format(**loss_means))
+        if printout:
+            print('[loss] a/o = {a:.2g}/{o:.2g}={r:.2g}'.format(**loss_means))
 
         for _ in loss:
             self.loss[_] = np.hstack([self.loss.setdefault(_, np.array([])),
