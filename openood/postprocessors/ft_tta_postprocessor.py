@@ -103,6 +103,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if not hasattr(self, '_inspector'):
             self._inspector = BatchInspector()
 
+        self._inspector.epoch = epoch
         if self.calculate_conf(epoch, epochs) or epoch == epochs - 1:
             self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 

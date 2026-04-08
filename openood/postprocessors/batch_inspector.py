@@ -94,6 +94,8 @@ class BatchInspector():
                 self.flush()
             return
 
+        self.iterations += 1
+
         loss = {}
         where = np.array(kw['where'])
         weights = kw['weights'].detach().cpu().numpy()
