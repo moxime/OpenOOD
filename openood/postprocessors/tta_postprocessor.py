@@ -130,9 +130,10 @@ class TTAPostprocessor(BasePostprocessor):
         """
         done before postprocessing chunk (data)
         """
-        print('**************************', epochs)
         if self.reload_network_at_chunk:
             self.reload_network(net)
+
+        self.iterations_on = {}
 
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
@@ -251,8 +252,6 @@ class TTAPostprocessor(BasePostprocessor):
 
             """
             pred = None
-
-            self.iterations_on = {}
 
             for epoch in range(epochs+1):
 
