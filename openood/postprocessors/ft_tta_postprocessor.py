@@ -112,7 +112,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
                                                                     epochs,
                                                                     self._inspector.iterations / epochs))
-            print('[chunk samples]', ' -- '.join('{}:{}'.format(*t) for t in self.samples_dist.items()))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
