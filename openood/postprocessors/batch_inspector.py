@@ -106,7 +106,7 @@ class BatchInspector():
             for w in wheres:
                 weights['{}_{}'.format(w, l)] = weights[l][where == w]
         for w in wheres:
-            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'o')].mean(),
+            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
                                               weights['{}_{}'.format(w, 'a')].mean()))
 
         w_means = {_: weights[_].mean() for _ in weights}
