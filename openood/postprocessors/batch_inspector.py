@@ -85,13 +85,11 @@ class BatchInspector():
 
         print('*** *** ***\n')
 
-    def update_mb(self, epoch, epochs, flush=False, **kw):
+    def update_mb(self, epoch, epochs, **kw):
         self.epoch = epoch
         self.epochs = epochs
 
         if not kw:
-            if flush:
-                self.flush()
             return
 
         self.iterations += 1
@@ -141,6 +139,3 @@ class BatchInspector():
                                          weights[_]])
 
         self.where = np.hstack([self.where, where])
-
-        if flush:
-            self.flush()

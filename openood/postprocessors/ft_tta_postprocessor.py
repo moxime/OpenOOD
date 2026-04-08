@@ -104,8 +104,13 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._inspector = BatchInspector()
 
         self._inspector.epoch = epoch
-        if self.calculate_conf(epoch, epochs) or epoch == epochs - 1:
-            self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
+
+        self._inspector.update_mb(epoch, epochs=epochs, **kw)
+        if self.calculate_conf(epoch, epochs) or epoch == epochs - 1 and flush:
+            self._inspector.flush()
+
+        if not kw and flush and self.loss:
+            self._inspector.flush()
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -113,7 +118,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         for _, m in self.max_iterations_on.items():
             if self.iterations_on.get(_, 0) >= m:
-                self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
+                self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
