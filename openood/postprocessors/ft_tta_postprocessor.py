@@ -93,30 +93,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return (0., self.beta)
 
-    def loss_weights(self, data, conf, pred, where, epoch=0, epochs=0, size_normalization=False):
-        """ returns  a len(data)x2 tensor of original and loss weights
-
-        where can be in (id, ood, mix, self)
-        """
-
-        if not isinstance(where, (list, tuple)):
-            where = [where for _ in conf]
-
-        raw_weights = torch.tensor([self.losses_weight(*p, epoch, epochs)
-                                    for p in zip(data, conf, pred, where)]).cuda()
-        if not size_normalization:
-            return raw_weights
-
-        normalization = torch.ones(2, device=conf.device)
-
-        n_id_orig_pos = (raw_weights[[w == 'id' for w in where], 0] > 0).sum()
-        n_ood_mix_self_alt_pos = (raw_weights[[w != 'id' for w in where], 1] > 0).sum()
-
-        normalization[0] = len(conf) / n_id_orig_pos
-        normalization[1] = len(conf) / n_ood_mix_self_alt_pos
-
-        return normalization.unsqueeze(0) * raw_weights
-
     def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
         """
         implement this methd in child class for debug purpose
@@ -153,11 +129,21 @@ class FTTTAPostprocessor(TTAPostprocessor):
             batch_list.extend(self.pad_buffers[where])
 
         for d in batch_list:
-            d['id_weight'] = self.losses_weight(**d, epoch=epoch, epochs=epochs)[0]
-            d['adaptation_weight'] = self.losses_weight(**d, epoch=epoch, epochs=epochs)[1]
+            d['weights'] = torch.tensor(self.losses_weight(**d, epoch=epoch, epochs=epochs))
 
         if self.filterout_null_weights:
-            batch_list = [_ for _ in batch_list if batch_list['id_weight'] or batch_list['adaptation_weight']]
+            batch_list = [_ for _ in batch_list if _['weights'].norm()]
+
+        if self.size_normalization:
+            N_samples = len(batch_list)
+            N_id_weights = len([_ for _ in batch_list if _['weights'][0] > 0])
+            N_adaptation_weights = len([_ for _ in batch_list if _['weights'][1] > 0])
+
+            w_normalization = (N_samples / (N_id_weights + 1e-12),
+                               N_samples / (N_adaptation_weights + 1e-12))
+
+        else:
+            w_normalization = (1., 1.)
 
         minibatch_loader = DataLoader(batch_list,
                                       shuffle=True,
@@ -179,28 +165,33 @@ class FTTTAPostprocessor(TTAPostprocessor):
             conf = batch['conf'].cuda()
             where = batch['where']
 
+            weights = batch['weights'].cuda()
+            w_norm0 = weights.norm(0, dim=0)
+
             inspection_dict.update(where=where)
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
-            id_loss = self.loss(logits, pred)
 
-            adaptation_loss = self.adaptation_loss(logits=logits, features=features, net=net)
+            if w_norm0[0]:
+                id_loss = self.loss(logits, pred)
+            else:
+                id_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(original_loss=id_loss, adaptation_loss=adaptation_loss)
-            # loss_weights of size 2 * batch_size
-            batch_weights = self.loss_weights(data, conf, pred, where,
-                                              epoch=epoch, epochs=epochs,
-                                              size_normalization=True).T
+            if w_norm0[1]:
+                adaptation_loss = self.adaptation_loss(logits=logits, features=features, net=net)
+            else:
+                adaptation_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(weights=batch_weights)
+            inspection_dict.update(original_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
 
             self.optimizer.zero_grad()
 
-            loss = (id_loss * batch_weights[0]).mean()
-            loss += (adaptation_loss * batch_weights[1]).mean()
+            # weights is batch_size*2
+            loss = w_normalization[0] * (id_loss * weights.T[0]).mean()
+            loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
                 self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_) + 1
