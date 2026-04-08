@@ -79,6 +79,8 @@ class BatchInspector():
         wheres, wherecount = np.unique(self.where, return_counts=True)
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
+        print('[chunk it] {}'.format(self.iterations))
+
         print('*** *** ***\n')
 
     def update_mb(self, epoch, epochs, flush=False, **kw):
@@ -127,7 +129,7 @@ class BatchInspector():
                                       loss[_]])
         for _ in weights:
             self.weights[_] = np.hstack([self.weights.setdefault(_, np.array([])),
-                                        weights[_]])
+                                         weights[_]])
 
         self.where = np.hstack([self.where, where])
 

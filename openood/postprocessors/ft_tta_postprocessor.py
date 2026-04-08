@@ -109,11 +109,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if self.calculate_conf(epoch, epochs):
             self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
-        if flush and epoch == epochs - 1:
-            print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
-                                                                    epochs,
-                                                                    self._inspector.iterations / epochs))
-
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
 
