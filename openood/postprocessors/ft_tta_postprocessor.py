@@ -119,6 +119,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         for _, m in self.max_iterations_on.items():
             if self.iterations_on.get(_, 0) >= m:
+                if epoch == epochs - 1:
+                    self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
