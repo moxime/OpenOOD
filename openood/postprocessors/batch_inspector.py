@@ -26,14 +26,16 @@ class BatchInspector():
     @epoch.setter
     def epoch(self, e):
         if e == self.epoch:
+            # we are on the same epoch
             return
+        # epoch chnage: tensor reset
+        self.reset()
         self._epoch = e
         self._iterations[e] = self._iterations[e - 1]
 
     def flush(self):
         self.means()
         self.print()
-        self.reset()
 
     def reset(self):
         self.loss = {}
@@ -86,6 +88,11 @@ class BatchInspector():
     def update_mb(self, epoch, epochs, flush=False, **kw):
         self.epoch = epoch
         self.epochs = epochs
+
+        if not kw:
+            if flush:
+                self.flush()
+            return
 
         loss = {}
         where = np.array(kw['where'])
