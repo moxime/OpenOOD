@@ -81,7 +81,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return uniform_ce(logits)
 
-    def losses_weight(self, data, conf, label, where, epoch=0, epochs=0, **kw):
+    def losses_weight(self, data=None, conf=0., pred=None, where='id', epoch=0, epochs=0):
         """ return loss_weight, adaptation_loss_weight for sample data
 
         where is either id, ood, self, mix
