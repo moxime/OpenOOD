@@ -4,7 +4,7 @@ import numpy as np
 class BatchInspector():
 
     _epoch = -1
-    _iterations = {}
+    _iterations = {-1: 0}
 
     loss = {}
     weights = {}
@@ -13,8 +13,7 @@ class BatchInspector():
     @property
     def iterations(self):
 
-        prev = self._iterations.get(self.epoch-1, 0)
-        return self._iterations.get(self.epoch, prev)
+        return self._iterations.get(self.epoch, 0)
 
     @iterations.setter
     def iterations(self, v):
@@ -24,18 +23,25 @@ class BatchInspector():
     def epoch(self):
         return self._epoch
 
+    @property
+    def flushed(self):
+        return not self.loss
+
     @epoch.setter
     def epoch(self, e):
         if e == self.epoch:
+            # we are on the same epoch
             return
+        # epoch chnage: tensor reset
+        self.reset()
         self._epoch = e
-        if not self._epoch:
-            self._iterations = {}
+        self._iterations[e] = self._iterations[e - 1]
 
     def flush(self):
+        if self.flushed:
+            return
         self.means()
         self.print()
-        self.reset()
 
     def reset(self):
         self.loss = {}
@@ -81,11 +87,18 @@ class BatchInspector():
         wheres, wherecount = np.unique(self.where, return_counts=True)
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
+        print('[chunk it] {}'.format(self.iterations))
+
         print('*** *** ***\n')
 
-    def update_mb(self, epoch, epochs, flush=False, **kw):
+    def update_mb(self, epoch, epochs, printout=False, **kw):
         self.epoch = epoch
         self.epochs = epochs
+
+        if not kw:
+            return
+
+        self.iterations += 1
 
         loss = {}
         where = np.array(kw['where'])
@@ -100,18 +113,21 @@ class BatchInspector():
         loss['a'] = kw['adaptation_loss'].detach().cpu().numpy()
 
         wheres, wherecount = np.unique(where, return_counts=True)
-        print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
+        if printout:
+            print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
         for l in list(weights):
             for w in wheres:
                 weights['{}_{}'.format(w, l)] = weights[l][where == w]
         for w in wheres:
-            print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
-                                              weights['{}_{}'.format(w, 'a')].mean()))
+            if printout:
+                print('{}: {:.2f}, {:.2f}'.format(w, weights['{}_{}'.format(w, 'i')].mean(),
+                                                  weights['{}_{}'.format(w, 'a')].mean()))
 
         w_means = {_: weights[_].mean() for _ in weights}
         w_means['r'] = w_means['i'] / w_means['a']
-        print('[weights] i/a = {i:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
+        if printout:
+            print('[weights] i/a = {i:.2g}/{a:.2g}={r:.2g}'.format(**w_means))
 
         loss_means = {}
         for row, k in enumerate(loss):
@@ -122,16 +138,14 @@ class BatchInspector():
 
         loss_means['r'] = loss_means['a'] / loss_means['o']
 
-        print('[loss] a/o = {a:.2g}/{o:.2g}={r:.2g}'.format(**loss_means))
+        if printout:
+            print('[loss] a/o = {a:.2g}/{o:.2g}={r:.2g}'.format(**loss_means))
 
         for _ in loss:
             self.loss[_] = np.hstack([self.loss.setdefault(_, np.array([])),
                                       loss[_]])
         for _ in weights:
             self.weights[_] = np.hstack([self.weights.setdefault(_, np.array([])),
-                                        weights[_]])
+                                         weights[_]])
 
         self.where = np.hstack([self.where, where])
-
-        if flush:
-            self.flush()
