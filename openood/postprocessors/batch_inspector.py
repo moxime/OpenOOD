@@ -80,6 +80,7 @@ class BatchInspector():
     def print(self):
         for e in range(self.epoch, -1, -1):
             if self.n_[e]:
+                print(e, self.n_[e])
                 break
         else:
             print('*** no epoch to sumup')
