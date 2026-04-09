@@ -120,7 +120,6 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
     @timedfunc('init epoch')
     def init_epoch(self, *a, epoch=0, **kw):
         super().init_epoch(*a, epoch=epoch, **kw)
-        print('*** epoch {} ({})'.format(epoch, self.phase))
 
     @timedfunc('post process')
     def postprocess(self, *a, **kw):
