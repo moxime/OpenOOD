@@ -130,6 +130,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
 
         if not batch_list:
+            self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
             return
 
         if self.size_normalization:
