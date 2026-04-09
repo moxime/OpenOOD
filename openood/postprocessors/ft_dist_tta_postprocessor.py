@@ -106,12 +106,12 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         epochs_per_phase = self.iterations_per_phase / it_per_epoch
 
         if self.phase == 'gas' and epoch > epochs_per_phase:
-            print('ù********************************************')
-            self.phase == 'solid'
+            self.phase = 'solid'
 
         if self.phase == 'liquid' and (epoch - self.switch_phase) > epochs_per_phase:
             self.phase = 'solid'
-        print('***', epoch, 'N+',  padded_mix_size, 'it/e',  it_per_epoch, 'e/ph',  epochs_per_phase, self.phase)
+        # print('***', epoch, 'N+',  padded_mix_size, 'it/e',
+        # it_per_epoch, 'e/ph',  epochs_per_phase, self.phase)
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
