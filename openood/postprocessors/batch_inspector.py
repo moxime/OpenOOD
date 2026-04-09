@@ -77,7 +77,6 @@ class BatchInspector():
     def print(self):
         for e in range(self.epoch, -1, -1):
             n = self.n_.get(e)
-            print(e, n)
             if n:
                 break
         else:
