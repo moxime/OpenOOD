@@ -372,6 +372,10 @@ if __name__ == '__main__':
     import sys
 
     config = setup_config()
+
+    ft_args = config.postprocessor.ft
+    ft_args.iterations = 100
+
     print(config)
 
     with open('/tmp/c.yml', 'w') as f:

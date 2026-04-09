@@ -133,8 +133,6 @@ class TTAPostprocessor(BasePostprocessor):
         if self.reload_network_at_chunk:
             self.reload_network(net)
 
-        self.iterations_on = {}
-
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
                 continue
