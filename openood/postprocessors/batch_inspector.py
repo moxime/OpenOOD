@@ -76,13 +76,14 @@ class BatchInspector():
 
     def print(self):
         for e in range(self.epoch, -1, -1):
-            if self.n_[e]:
-                print(e, self.n_[e])
+            n = self.n_.get(e)
+            print(e, n)
+            if n:
                 break
         else:
-            print('*** no epoch to sumup')
+            print('*** no epoch to sumup from {}'.format(self.epoch))
+            return
         print('\n*** *** *** epoch {} chunk sumup (from epoch {}) *** *** ***'.format(e, self.epoch))
-        n = len(self.loss['a'])
         for _ in self.loss_[e]:
             kept = [t[0] for t in self.loss_[e][_].items() if t[1] > 0]
             if len(kept) == 2:
