@@ -69,6 +69,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         super().__init__(config)
         self.setup_flag = False
         self._debug = True
+        self._epoch = -1
 
     def reload_network(self, net):
 
@@ -100,14 +101,14 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
         b = super().calculate_conf(epoch=epoch, epochs=epochs)
         if b:
-            print('*** Calculating conf ({})'.format(epoch))
+            pass  # print('*** Calculating conf ({})'.format(epoch))
         return b
 
     @timedfunc('update pad buffers')
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} pad samples ({}) from {}'.format(n, len(self.pad_buffers[where]), where))
+        print('*** added {} samples ({}) to pad_{}'.format(n, len(self.pad_buffers[where]), where))
         return n
 
     # @timedfunc('loss weight')
@@ -118,12 +119,28 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         return w
 
     @timedfunc('init epoch')
-    def init_epoch(self, *a, epoch=0, **kw):
+    def init_epoch(self, *a, epoch=0, epochs=0, **kw):
+        self._epoch = epoch
+        if self.calculate_conf(epoch, epochs):
+            print('*** epoch {} ***'.format(epoch))
         super().init_epoch(*a, epoch=epoch, **kw)
 
     @timedfunc('post process')
     def postprocess(self, *a, **kw):
-        return super().postprocess(*a, **kw)
+        pred, conf = super().postprocess(*a, **kw)
+
+        t = self.pad_thresholds['self']
+        a = [0.05, 0.5, 0.95]
+        conf_ = conf.detach().cpu().numpy()
+        q = np.quantile(conf_, a)
+        q_ = dict(zip(q, a))
+        q_[t] = (conf_ < t).mean()
+        q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
+
+        print('[chunk ({}) calculated conf at epoch {}]'.format(len(conf_), self._epoch),
+              ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+
+        return pred, conf
 
     @timedfunc('adaptation loss')
     def adaptation_loss(self, *a, **kw):

@@ -161,7 +161,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            inspection_dict.update(where=where)
+            inspection_dict.update(where=where, conf=conf)
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))

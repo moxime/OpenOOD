@@ -6,14 +6,15 @@ class BatchInspector():
     _epoch = -1
     _iterations = {-1: 0}
 
-    loss = {}
-    weights = {}
-    where = np.array([])
-
     loss_ = {}
     weights_ = {}
     where_ = {}
     n_ = {}
+    conf_ = {}
+
+    def __init__(self, threshold=-2):
+        self.threshold = threshold
+        self.reset()
 
     @property
     def iterations(self):
@@ -38,7 +39,7 @@ class BatchInspector():
             # we are on the same epoch
             return
         # epoch chnage: tensor reset
-        self.means()
+        self.stats()
         self.reset()
         self._epoch = e
         self._iterations[e] = self._iterations[e - 1]
@@ -47,8 +48,19 @@ class BatchInspector():
         self.loss = {}
         self.weights = {}
         self.where = np.array([])
+        self.conf = np.array([])
 
-    def means(self):
+    def quantiles(self, conf):
+
+        a = [0.05, 0.5, 0.95]
+        q = np.quantile(conf, a)
+        q_ = dict(zip(q, a))
+        q_[self.threshold] = (conf < self.threshold).mean()
+        q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
+
+        return q_
+
+    def stats(self):
         e = self.epoch
         self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}}
         self.n_[e] = 0
@@ -63,6 +75,7 @@ class BatchInspector():
         n = len(self.loss['a'])
         self.n_[e] = n
         for _ in self.loss:
+
             self.loss_[e]['raw'][_] = self.loss[_].mean()
 
             weighted_loss = self.loss[_] * self.weights[_]
@@ -73,6 +86,10 @@ class BatchInspector():
 
         for _ in self.weights:
             self.weights_[e][_] = self.weights[_].mean()
+
+        self.conf_[e] = {'all': self.quantiles(self.conf)}
+        for _ in wheres:
+            self.conf_[e][_] = self.quantiles(self.conf[self.where == _])
 
     def print(self):
         for e in range(self.epoch, -1, -1):
@@ -102,6 +119,10 @@ class BatchInspector():
         wheres, wherecount = np.unique(self.where_[e], return_counts=True)
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
+        for w, q_ in self.conf_[e].items():
+            print('[chunk conf {}]'.format(w),
+                  ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+
         print('[chunk it] {}'.format(self.iterations))
 
         print('*** *** ***\n')
@@ -119,6 +140,7 @@ class BatchInspector():
         where = np.array(kw['where'])
         weights = kw['weights'].detach().cpu().numpy()
         weights = {'i': weights[:, 0], 'a': weights[:, 1]}
+        conf = kw['conf'].detach().cpu().numpy()
         if 'stratified_loss_id' in kw:
             pass
             # strat_loss['o'] = kw['stratified_loss_id'].detach().cpu().numpy()
@@ -164,3 +186,4 @@ class BatchInspector():
                                         weights[_]])
 
         self.where = np.hstack([self.where, where])
+        self.conf = np.hstack([self.conf, conf])
