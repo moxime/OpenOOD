@@ -43,9 +43,8 @@ class BatchInspector():
         self._iterations[e] = self._iterations[e - 1]
 
     def flush(self):
-        if self.flushed:
-            return
-        self.means()
+        if not self.flushed:
+            self.means()
         self.print()
 
     def reset(self):
