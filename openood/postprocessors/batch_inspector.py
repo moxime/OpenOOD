@@ -13,6 +13,7 @@ class BatchInspector():
     loss_ = {}
     weights_ = {}
     where_ = {}
+    n_ = {}
 
     @property
     def iterations(self):
@@ -54,7 +55,8 @@ class BatchInspector():
 
     def means(self):
         e = self.epoch
-        self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}, 'n': 0}
+        self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}}
+        self.n_[e] = 0
         self.weights_[e] = {}
 
         wheres, wherecount = np.unique(self.where, return_counts=True)
@@ -62,7 +64,7 @@ class BatchInspector():
         self.where_[e] = self.where
 
         n = len(self.loss['a'])
-        self.loss_[e]['n'] = n
+        self.n_[e] = n
         for _ in self.loss:
             self.loss_[e]['raw'][_] = self.loss[_].mean()
 
@@ -77,7 +79,7 @@ class BatchInspector():
 
     def print(self):
         for e in range(self.epoch, -1, -1):
-            if self.loss_[e]['n']:
+            if self.n_[e]:
                 break
         else:
             print('*** no epoch to sumup')
