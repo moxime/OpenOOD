@@ -58,6 +58,8 @@ class BatchInspector():
 
         self.where_[e] = self.where
 
+        if not self.loss:
+            return
         n = len(self.loss['a'])
         self.n_[e] = n
         for _ in self.loss:
