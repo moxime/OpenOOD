@@ -69,6 +69,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         super().__init__(config)
         self.setup_flag = False
         self._debug = True
+        self._epoch = -1
 
     def reload_network(self, net):
 
