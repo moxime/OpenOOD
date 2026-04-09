@@ -132,6 +132,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if self.filterout_null_weights:
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
 
+        if not batch_list:
+            return
+
         if self.size_normalization:
             N_samples = len(batch_list)
             N_id_weights = len([_ for _ in batch_list if _['weights'][0] > 0])
