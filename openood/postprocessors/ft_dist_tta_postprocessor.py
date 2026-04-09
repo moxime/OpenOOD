@@ -48,7 +48,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
     def epoch_sumup(self, *a, **kw):
-        return '[{}]'.format(self.phase[:3]) + self.epoch_sumup(*a, **kw)
+        return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
 
     def adaptation_loss(self, logits, features, net):
 
