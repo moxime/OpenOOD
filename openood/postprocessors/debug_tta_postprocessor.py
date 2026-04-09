@@ -119,6 +119,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
     @timedfunc('init epoch')
     def init_epoch(self, *a, epoch=0, epochs=0, **kw):
+        self._epoch = epoch
         if self.calculate_conf(epoch, epochs):
             print('*** epoch {} ***'.format(epoch))
         super().init_epoch(*a, epoch=epoch, **kw)
@@ -135,7 +136,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         q_[t] = (conf_ < t).mean()
         q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
 
-        print('[chunk ({}) calculated conf]'.format(len(conf_)),
+        print('[chunk ({}) calculated conf at epoch {}]'.format(len(conf_), self._epoch),
               ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
 
         return pred, conf
