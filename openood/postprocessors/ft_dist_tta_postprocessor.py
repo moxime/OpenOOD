@@ -27,8 +27,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if self.max_iterations:
             assert not self.pad_sizes.get('id', 0)
 
-        print('*** mu_ood', self.mu_ood, 'iter/phase {}{}'.format('=' if self.max_iterations else '>=',
-                                                                  self.iterations_per_phase))
+        print('*** mu_ood', self.mu_ood, 'iter/phase {} {}'.format('=' if self.max_iterations else '>=',
+                                                                   self.iterations_per_phase))
 
         config_save_path = os.path.join(config.output_dir, 'config.yml')
         with open(config_save_path, 'w') as f:
@@ -105,13 +105,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         it_per_epoch = padded_mix_size / self.batch_size
         epochs_per_phase = self.iterations_per_phase / it_per_epoch
 
-        if self.phase == 'gas' and epoch > epochs_per_phase:
+        if self.phase == 'gas' and epoch >= epochs_per_phase:
             self.phase = 'solid'
 
-        if self.phase == 'liquid' and (epoch - self.switch_phase) > epochs_per_phase:
+        if self.phase == 'liquid' and (epoch - self.switch_phase) >= epochs_per_phase:
             self.phase = 'solid'
-        # print('***', epoch, 'N+',  padded_mix_size, 'it/e',
-        # it_per_epoch, 'e/ph',  epochs_per_phase, self.phase)
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
