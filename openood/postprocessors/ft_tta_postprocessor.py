@@ -128,10 +128,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if self.filterout_null_weights:
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
 
-        if not batch_list:
-            self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
-            return
-
         if self.size_normalization:
             N_samples = len(batch_list)
             N_id_weights = len([_ for _ in batch_list if _['weights'][0] > 0])
@@ -144,7 +140,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             w_normalization = (1., 1.)
 
         minibatch_loader = DataLoader(batch_list,
-                                      shuffle=True,
+                                      shuffle=batch_list,  # if batch_list is empty, do not shuffle (bug)
                                       batch_size=self.batch_size,
                                       drop_last=False)
 
@@ -213,5 +209,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._grad += 1
             self.optimizer.step()
 
-            flush = (i == len(minibatch_loader) - 1)
-            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs, flush=flush)
+            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
+
+        self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
