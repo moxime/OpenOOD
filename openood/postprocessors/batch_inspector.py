@@ -10,6 +10,10 @@ class BatchInspector():
     weights = {}
     where = np.array([])
 
+    loss_ = {}
+    weights_ = {}
+    where_ = {}
+
     @property
     def iterations(self):
 
@@ -49,27 +53,37 @@ class BatchInspector():
         self.where = np.array([])
 
     def means(self):
-        self.loss_ = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}}
+        e = self.epoch
+        self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}, 'n': 0}
+
         wheres, wherecount = np.unique(self.where, return_counts=True)
 
+        self.where_[e] = self.where
+
+        n = len(self.loss['a'])
+        self.loss_[e]['n'] = n
         for _ in self.loss:
-            self.loss_['raw'][_] = self.loss[_].mean()
+            self.loss_[e]['raw'][_] = self.loss[_].mean()
 
             weighted_loss = self.loss[_] * self.weights[_]
-            self.loss_['weighted'][_] = weighted_loss.mean()
+            self.loss_[e]['weighted'][_] = weighted_loss.mean()
             for w in wheres:
-                self.loss_['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w].mean()
-                n = len(self.loss['a'])
-                self.loss_['wf']['{}_{}'.format(_, w)] = weighted_loss[self.where == w].sum() / n
+                self.loss_[e]['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w].mean()
+                self.loss_[e]['wf']['{}_{}'.format(_, w)] = weighted_loss[self.where == w].sum() / n
 
         for _ in self.weights:
-            self.weights[_] = self.weights[_].mean()
+            self.weights_[e][_] = self.weights[_].mean()
 
     def print(self):
-        print('\n*** *** *** epoch {} chunk sumup *** *** ***'.format(self.epoch))
+        for e in range(self.epoch, -1, -1):
+            if self.loss_[e]['n']:
+                break
+        else:
+            print('*** no epoch to sumup')
+        print('\n*** *** *** epoch {} chunk sumup (from epoch {}) *** *** ***'.format(e, self.epoch))
         n = len(self.loss['a'])
-        for _ in self.loss_:
-            kept = [t[0] for t in self.loss_[_].items() if t[1] > 0]
+        for _ in self.loss_[e]:
+            kept = [t[0] for t in self.loss_[e][_].items() if t[1] > 0]
             if len(kept) == 2:
                 if kept[0].startswith('a'):
                     k_a = kept[0]
@@ -77,14 +91,14 @@ class BatchInspector():
                 else:
                     k_a = kept[1]
                     k_o = kept[0]
-                self.loss_[_]['{}/{}'.format(k_a, k_o)] = self.loss_[_][k_a] / self.loss_[_][k_o]
+                self.loss_[e][_]['{}/{}'.format(k_a, k_o)] = self.loss_[e][_][k_a] / self.loss_[e][_][k_o]
             print('[chunk {} loss ({})]'.format(_, n), end=' ')
-            print(' '.join('{}:{:.3g}'.format(*t) for t in self.loss_[_].items() if t[1] > 0))
+            print(' '.join('{}:{:.3g}'.format(*t) for t in self.loss_[e][_].items() if t[1] > 0))
 
         print('[chunk weights]', ' -- '.join('{}:{:.3g}'.format(*t)
-                                             for t in self.weights.items() if t[1] > 0))
+                                             for t in self.weights_[e].items() if t[1] > 0))
 
-        wheres, wherecount = np.unique(self.where, return_counts=True)
+        wheres, wherecount = np.unique(self.where_[e], return_counts=True)
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
         print('[chunk it] {}'.format(self.iterations))
@@ -143,9 +157,9 @@ class BatchInspector():
 
         for _ in loss:
             self.loss[_] = np.hstack([self.loss.setdefault(_, np.array([])),
-                                      loss[_]])
+                                     loss[_]])
         for _ in weights:
             self.weights[_] = np.hstack([self.weights.setdefault(_, np.array([])),
-                                         weights[_]])
+                                        weights[_]])
 
         self.where = np.hstack([self.where, where])
