@@ -107,7 +107,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} pad samples ({}) from {}'.format(n, len(self.pad_buffers[where]), where))
+        print('*** added {} samples ({}) to pad_{}'.format(n, len(self.pad_buffers[where]), where))
         return n
 
     # @timedfunc('loss weight')
@@ -123,7 +123,19 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
     @timedfunc('post process')
     def postprocess(self, *a, **kw):
-        return super().postprocess(*a, **kw)
+        pred, conf = super().postprocess(*a, **kw)
+
+        t = self.pad_thresholds['self']
+        a = [0.05, 0.5, 0.95]
+        q = np.quantile(conf.detach().cpu().numpy(), a)
+        q_ = dict(zip(q, a))
+        q_[t] = (conf < t).mean()
+        q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
+
+        print('[chunk calculated conf]',
+              ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+
+        return pred, conf
 
     @timedfunc('adaptation loss')
     def adaptation_loss(self, *a, **kw):
