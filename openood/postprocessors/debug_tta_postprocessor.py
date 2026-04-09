@@ -127,10 +127,11 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
         t = self.pad_thresholds['self']
         a = [0.05, 0.5, 0.95]
-        q = np.quantile(conf.detach().cpu().numpy(), a)
+        conf_ = conf.detach().cpu().numpy()
+        q = np.quantile(conf_, a)
         q_ = dict(zip(q, a))
-        q_[t] = (conf < t).mean()
-        q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
+        q_[t] = (conf_ < t).mean()
+        q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
 
         print('[chunk calculated conf]',
               ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
