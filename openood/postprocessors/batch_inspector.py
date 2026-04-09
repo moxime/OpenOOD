@@ -58,6 +58,8 @@ class BatchInspector():
         q_[self.threshold] = (conf < self.threshold).mean()
         q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
 
+        return q_
+
     def stats(self):
         e = self.epoch
         self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}}
