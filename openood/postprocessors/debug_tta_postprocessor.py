@@ -118,7 +118,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         return w
 
     @timedfunc('init epoch')
-    def init_epoch(self, *a, epoch=0, **kw):
+    def init_epoch(self, *a, epoch=0, epochs=0, **kw):
         if self.calculate_conf(epoch, epochs):
             print('*** epoch {} ***'.format(epoch))
         super().init_epoch(*a, epoch=epoch, **kw)
