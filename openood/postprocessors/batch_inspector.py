@@ -55,7 +55,7 @@ class BatchInspector():
         a = [0.05, 0.5, 0.95]
         q = np.quantile(conf, a)
         q_ = dict(zip(q, a))
-        q_[self.threshold] = (self.loss[a] < self.threshold).mean()
+        q_[self.threshold] = (conf < self.threshold).mean()
         q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
 
     def stats(self):
