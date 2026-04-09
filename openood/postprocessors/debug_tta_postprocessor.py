@@ -133,7 +133,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         q_[t] = (conf_ < t).mean()
         q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
 
-        print('[chunk calculated conf]',
+        print('[chunk ({}) calculated conf]'.format(len(conf_)),
               ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
 
         return pred, conf
