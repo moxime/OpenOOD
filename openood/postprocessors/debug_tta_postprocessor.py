@@ -100,7 +100,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
         b = super().calculate_conf(epoch=epoch, epochs=epochs)
         if b:
-            print('*** Calculating conf ({})'.format(epoch))
+            pass  # print('*** Calculating conf ({})'.format(epoch))
         return b
 
     @timedfunc('update pad buffers')
@@ -119,6 +119,8 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
     @timedfunc('init epoch')
     def init_epoch(self, *a, epoch=0, **kw):
+        if self.calculate_conf(epoch, epochs):
+            print('*** epoch {} ***'.format(epoch))
         super().init_epoch(*a, epoch=epoch, **kw)
 
     @timedfunc('post process')
