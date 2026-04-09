@@ -29,10 +29,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
 
+        self.epochs = self.ft_args.epochs
+
         self.filterout_null_weights = self.ft_args.only_non_zeros
         self.size_normalization = True
-
-        self.max_iterations_on = {}
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -114,10 +114,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """finetune is done  _epochs_ times
 
         """
-        for _, m in self.max_iterations_on.items():
-            if self.iterations_on.get(_, 0) >= m:
-                self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
-                return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
         batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
@@ -158,7 +154,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix', 0) + 1
             inspection_dict = {}
 
             data = batch['data'].cuda()
@@ -195,7 +190,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
-                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_, 0) + 1
                 batch_ = self.next_aux_minibatch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)

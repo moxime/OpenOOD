@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch
 import numpy as np
 from typing import Any
+import os
+import yaml
 
 
 class DistTTAPostprocessor(FTTTAPostprocessor):
@@ -14,7 +16,26 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         assert not self.args or self.args.mu_ood in ('zero', 'mean', None)
         self.mu_ood = self.args.mu_ood if self.args else None
         self.iterations = self.args.iterations_per_phase
-        print('*** mu_ood', self.mu_ood)
+        self.switch_phase = self.epochs // 4
+
+        # number of iterations per phase when no self padding
+        min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
+        min_it_per_epoch = min_padded_size / self.batch_size
+        self.iterations_per_phase = int(min_it_per_epoch * self.switch_phase)
+        self.max_iterations = self.args.max_iterations_per_phase
+        self.ft_args.iterations_per_phase = self.iterations_per_phase
+        if self.max_iterations:
+            assert not self.pad_sizes.get('id', 0)
+
+        print('*** mu_ood', self.mu_ood, 'iter/phase', self.iterations_per_phase)
+
+        config_save_path = os.path.join(config.output_dir, 'config.yml')
+        with open(config_save_path, 'w') as f:
+            yaml.dump(config,
+                      f,
+                      default_flow_style=False,
+                      sort_keys=False,
+                      indent=2)
 
     def setup(self, net, *a, **kw):
 
@@ -29,28 +50,6 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         return features.square().sum(-1)
 
-    def new_chunk(self, net, data, epochs=0):
-
-        super().new_chunk(net, data, epochs=epochs)
-
-        if not self.iterations:
-            self.switch_phase = epochs//4
-            return
-
-        padded_mix_size = len(data) + sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
-
-        it_per_epoch = padded_mix_size / self.batch_size
-
-        self.switch_phase = int(np.ceil(self.iterations / it_per_epoch))
-
-        self.max_iterations_on['padded_mix'] = 2 * self.iterations
-
-        if not epochs:
-            return
-
-        _s = 'epochs: {} it/epoch: {} it: {}'
-        assert epochs * it_per_epoch >= 2 * self.iterations, _s.format(epochs, it_per_epoch, 2 * self.iterations)
-
     def losses_weight(self, conf=0., where='id', epoch=0, epochs=0, **kw):
         """ return id_loss_weight, adaptation_loss_weight for sample x
 
@@ -60,8 +59,16 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         - during second half: only if likely ood (conf < sb) """
 
+        if self.phase == 'solid':
+            # No FT in solid phase
+            return (0., 0.)
+
         if where == 'mix':
-            if epoch < self.switch_phase or conf < self.pad_thresholds['self']:
+            if self.phase == 'gas':
+                # first phase
+                return (0., self.beta)
+            # second phase (liquid)
+            if conf < self.pad_thresholds['self']:
                 return (0., self.beta)
             return (0., 0.)
 
@@ -75,10 +82,33 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
+        super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
+
         if epoch in (0, self.switch_phase):
             self.reload_network(net)
 
-        super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
+        self.phase = 'liquid'
+        if epoch < self.switch_phase:
+            self.phase = 'gas'
+
+        if not self.max_iterations:
+            return
+
+        padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
+
+        if self.phase == 'liquid':
+            padded_mix_size += (conf < self.pad_thresholds).sum()
+        else:
+            padded_mix_size += len(conf)
+
+        it_per_epoch = padded_mix_size / self.batch_size
+        epochs_per_phase = self.iterations_per_phase / it_per_epoch
+
+        if self.phase == 'gas' and epoch > epochs_per_phase:
+            self.phase == 'solid'
+
+        if self.phase == 'liquid' and (epoch - self.switch_phase) > epochs_per_phase:
+            self.phase = 'solid'
 
     @torch.no_grad()
     def postprocess(self, net: nn.Module, data: Any, epoch=0, pred=None):
