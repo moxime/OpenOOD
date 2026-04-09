@@ -38,14 +38,10 @@ class BatchInspector():
             # we are on the same epoch
             return
         # epoch chnage: tensor reset
+        self.means()
         self.reset()
         self._epoch = e
         self._iterations[e] = self._iterations[e - 1]
-
-    def flush(self):
-        if not self.flushed:
-            self.means()
-        self.print()
 
     def reset(self):
         self.loss = {}
