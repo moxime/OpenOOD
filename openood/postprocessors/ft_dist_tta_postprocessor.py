@@ -98,7 +98,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
 
         if self.phase == 'liquid':
-            padded_mix_size += (conf < self.pad_thresholds).sum()
+            padded_mix_size += (conf < self.pad_thresholds['self']).sum()
         else:
             padded_mix_size += len(conf)
 
