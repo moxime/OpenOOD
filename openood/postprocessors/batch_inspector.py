@@ -55,6 +55,7 @@ class BatchInspector():
     def means(self):
         e = self.epoch
         self.loss_[e] = {'raw': {}, 'weighted': {}, 'filtered': {},  'wf': {}, 'n': 0}
+        self.weights_[e] = {}
 
         wheres, wherecount = np.unique(self.where, return_counts=True)
 
