@@ -105,10 +105,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         self._inspector.epoch = epoch
 
-        printout = (self.calculate_conf(epoch, epochs) or epoch == epochs - 1) and flush
+        printout = (self.calculate_conf(epoch, epochs) or epoch == epochs - 1 or not kw) and flush
         self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
         if printout:
-            print('*** print inspector ***', epoch)
             self._inspector.flush()
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
@@ -130,8 +129,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
 
         if not batch_list:
-            print('*** {}: no batch ***'.format(epoch))
-            self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
+            self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
             return
 
         if self.size_normalization:
