@@ -27,8 +27,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if self.max_iterations:
             assert not self.pad_sizes.get('id', 0)
 
-        print('*** mu_ood', self.mu_ood, 'iter/phase {}{}'.format('=' if self.max_iterations else '>=',
-                                                                  self.iterations_per_phase))
+        print('*** mu_ood', self.mu_ood, 'iter/phase {} {}'.format('=' if self.max_iterations else '>=',
+                                                                   self.iterations_per_phase))
 
         config_save_path = os.path.join(config.output_dir, 'config.yml')
         with open(config_save_path, 'w') as f:
