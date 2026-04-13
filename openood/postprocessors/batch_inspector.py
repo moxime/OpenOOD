@@ -58,6 +58,7 @@ class BatchInspector():
         q_[self.threshold] = (conf < self.threshold).mean()
         q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
 
+        q_['mean'] = conf.mean()
         return q_
 
     def stats(self):
@@ -81,7 +82,7 @@ class BatchInspector():
             weighted_loss = self.loss[_] * self.weights[_]
             self.loss_[e]['weighted'][_] = weighted_loss.mean()
             for w in wheres:
-                self.loss_[e]['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w].mean()
+                self.loss_[e]['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w].sum() / n
                 self.loss_[e]['wf']['{}_{}'.format(_, w)] = weighted_loss[self.where == w].sum() / n
 
         for _ in self.weights:
@@ -97,7 +98,7 @@ class BatchInspector():
             if n:
                 break
         else:
-            print('*** no epoch to sumup from {}'.format(self.epoch))
+            #  print('*** no epoch to sumup from {}'.format(self.epoch))
             return
         print('\n*** *** *** epoch {} chunk sumup (from epoch {}) *** *** ***'.format(e, self.epoch))
         for _ in self.loss_[e]:
@@ -120,11 +121,14 @@ class BatchInspector():
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
         for w, q_ in self.conf_[e].items():
+            m = q_.pop('mean', np.nan)
             print('[chunk conf {}]'.format(w),
-                  ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+                  ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()),
+                  '-- m = {:.2f}'.format(m))
 
         print('[chunk it] {}'.format(self.iterations))
 
+        self.n_[e] = 0
         print('*** *** ***\n')
 
     def update_mb(self, epoch, epochs, printout=False, **kw):
