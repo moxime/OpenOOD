@@ -1,19 +1,13 @@
-from typing import Any
-
-from collections import deque
-
-import numpy as np
+import os
 import torch
 import torch.nn as nn
 
-from torch.utils.data import DataLoader, BatchSampler
+from torch.utils.data import DataLoader
 from .tta_postprocessor import TTAPostprocessor
 
 from .batch_inspector import BatchInspector
 
 from openood.losses import uniform_ce, MarginCrossEntropy
-import logging
-import time
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
@@ -99,6 +93,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         if not hasattr(self, '_debug'):
             return
+
+        for _ in self.pad_buffers:
+            self.pad_buffers[_].save(os.path.join(self.config.exp_name, 'pad_{}.png'.format(_)))
 
         if not hasattr(self, '_inspector'):
             self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))

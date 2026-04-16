@@ -13,6 +13,8 @@ import openood.utils.comm as comm
 
 from .base_postprocessor import BasePostprocessor
 
+import torchvision
+
 
 class PadBuffer(deque):
 
@@ -37,6 +39,10 @@ class PadBuffer(deque):
                 self.pop()
             except IndexError:
                 break
+
+    def save(self, path):
+
+        torchvision.utils.save_image([_['data'] for _ in self], path)
 
 
 class TTAPostprocessor(BasePostprocessor):
