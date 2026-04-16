@@ -91,12 +91,14 @@ class MixtureDataset(Dataset):
 
     def __repr__(self):
 
+        return 'YYY'
+
         s_d = {_: repr(self._datasets[_]) for _ in self._datasets}
 
         for sub in s_d:
 
-            s = 'YY\n'.join('{} {}'.format(sub if i == 0 else ' '*(len(sub)-2)+'|-', line)
-                            for i, line in enumerate(s_d[sub].split('\n')))
+            s = '\n'.join('{} {}'.format(sub if i == 0 else ' '*(len(sub)-2)+'|-', line)
+                          for i, line in enumerate(s_d[sub].split('\n')))
             s_d[sub] = s
 
         return '\n'.join(s_d[_] for _ in s_d)
