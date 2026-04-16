@@ -58,6 +58,7 @@ class BatchInspector():
         q_[self.threshold] = (conf < self.threshold).mean()
         q_ = {_: len(conf) * q_[_] for _ in sorted(q_)}
 
+        q_['mean'] = conf.mean()
         return q_
 
     def stats(self):
@@ -120,8 +121,10 @@ class BatchInspector():
         print('[chunk wheres]', ' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
 
         for w, q_ in self.conf_[e].items():
+            m = q_.pop('mean', np.nan)
             print('[chunk conf {}]'.format(w),
-                  ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+                  ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()),
+                  '-- m = {:.2f}'.format(m))
 
         print('[chunk it] {}'.format(self.iterations))
 
