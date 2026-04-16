@@ -98,7 +98,7 @@ class BatchInspector():
             if n:
                 break
         else:
-            print('*** no epoch to sumup from {}'.format(self.epoch))
+            #  print('*** no epoch to sumup from {}'.format(self.epoch))
             return
         print('\n*** *** *** epoch {} chunk sumup (from epoch {}) *** *** ***'.format(e, self.epoch))
         for _ in self.loss_[e]:
