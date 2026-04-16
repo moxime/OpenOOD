@@ -95,8 +95,8 @@ class MixtureDataset(Dataset):
 
         for sub in s_d:
 
-            s = '\n'.join('{} {}'.format(sub if i == 0 else ' '*(len(sub)-2)+'|-', line)
-                          for i, line in enumerate(s_d[sub].split('\n')))
+            s = 'YYYYY\n'.join('{} {}'.format(sub if i == 0 else ' '*(len(sub)-2)+'|-', line)
+                               for i, line in enumerate(s_d[sub].split('\n')))
             # s_d[sub] = s
 
         return '\n'.join(s_d[_] for _ in s_d)

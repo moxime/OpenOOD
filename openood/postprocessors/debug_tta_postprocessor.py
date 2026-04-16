@@ -59,8 +59,6 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
         str_ = [(' ' * len(str_l) if i else str_l) + _ for i, _ in enumerate(d_str_)]
 
-        str_.append(type(obj.dataset).__name__)
-
     for _ in str_:
         print(prefix + _)
 
