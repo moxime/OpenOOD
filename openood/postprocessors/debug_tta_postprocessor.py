@@ -95,6 +95,11 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
             print('****', name, any(_.requires_grad for _ in sub.parameters()))
 
+        for _ in self.aux_dls:
+
+            d = self.aux_dls[_].dataset
+            print('*** aux_dl[{}]: {} {}'.format(_, d, type(d)))
+
         self.setup_flag = True
 
     def calculate_conf(self, epoch=0, epochs=0):

@@ -65,10 +65,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-        for _ in self.aux_dls:
-
-            print('*** axu_dl[]: {}'.format(_, self.aux_dls[_].dataset))
-
     def next_aux_minibatch(self, where):
 
         assert where in self.stratified, '{} is ot stratified'.format(where)
