@@ -24,5 +24,7 @@ class Convert:
     def __call__(self, image):
         return image.convert(self.mode)
 
+    def __repr__(self):
+        return '|->{}|'.format(self.mode)
 
 # More transform classes shall be written here
