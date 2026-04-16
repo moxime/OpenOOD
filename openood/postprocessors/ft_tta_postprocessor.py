@@ -95,7 +95,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return
 
         for _ in self.pad_buffers:
-            self.pad_buffers[_].save(os.path.join(self.config.exp_name, 'pad_{}.png'.format(_)))
+            p = self.pad_buffers[_].save(os.path.join(self.config.output_dir, 'pad_{}.png'.format(_)))
+            if p:
+                print('*** pad_{} in {}'.format(_, p))
 
         if not hasattr(self, '_inspector'):
             self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
