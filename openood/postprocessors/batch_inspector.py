@@ -128,6 +128,7 @@ class BatchInspector():
 
         print('[chunk it] {}'.format(self.iterations))
 
+        self.n_[e] = 0
         print('*** *** ***\n')
 
     def update_mb(self, epoch, epochs, printout=False, **kw):
