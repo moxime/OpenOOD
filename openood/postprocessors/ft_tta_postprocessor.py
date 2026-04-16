@@ -101,7 +101,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return
 
         if not hasattr(self, '_inspector'):
-            self._inspector = BatchInspector()
+            self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
 
         self._inspector.epoch = epoch
 
