@@ -40,6 +40,21 @@ class PadBuffer(deque):
             except IndexError:
                 break
 
+    def update_conf(self, net, batch_size=32, and_pred=False):
+        dl = DataLoader(self, batch_size=batch_size, drop_last=False, shuffle=False)
+
+        b_ = []
+        for b in dl:
+            pred, conf = self.postprocess(net, b['data'], pred=None if and_pred else b['pred'])
+            b['pred'] pred
+            b['conf'] = conf
+
+            b_.append(b)
+
+        for old, new in zip(self, sum(b_, start=[])):
+            old['pred'] = new['pred']
+            old['conf'] = new['conf']
+
     def save(self, path):
 
         if self:
@@ -268,6 +283,9 @@ class TTAPostprocessor(BasePostprocessor):
                     pred, conf = self.postprocess(net, data, pred=pred)
                     for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                         outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
+
+                    if self.pad_buffers.get('ood'):
+                        self.pad_buffers['ood'].update_conf(net, self.batch_size, and_pred=True)
 
                 self.init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
