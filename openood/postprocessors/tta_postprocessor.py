@@ -53,9 +53,10 @@ class PadBuffer(deque):
             b['pred'] = pred
             b['conf'] = conf
 
-            b_.append(b)
+            b = [dict(zip(b, t)) for t in zip(*b.values())]
+            b_.extend(b)
 
-        for old, new in zip(self, sum(b_, start=[])):
+        for old, new in zip(self, b_):
             old['pred'] = new['pred']
             old['conf'] = new['conf']
 
