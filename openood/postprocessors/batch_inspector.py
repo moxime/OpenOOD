@@ -82,7 +82,7 @@ class BatchInspector():
             weighted_loss = self.loss[_] * self.weights[_]
             self.loss_[e]['weighted'][_] = weighted_loss.mean()
             for w in wheres:
-                self.loss_[e]['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w].mean()
+                self.loss_[e]['filtered']['{}_{}'.format(_, w)] = self.loss[_][self.where == w] / n
                 self.loss_[e]['wf']['{}_{}'.format(_, w)] = weighted_loss[self.where == w].sum() / n
 
         for _ in self.weights:
