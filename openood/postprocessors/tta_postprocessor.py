@@ -42,7 +42,8 @@ class PadBuffer(deque):
 
     def save(self, path):
 
-        torchvision.utils.save_image([_['data'] for _ in self], path)
+        if self:
+            torchvision.utils.save_image([_['data'] for _ in self], path)
 
 
 class TTAPostprocessor(BasePostprocessor):
