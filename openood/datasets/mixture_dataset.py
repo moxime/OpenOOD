@@ -91,7 +91,7 @@ class MixtureDataset(Dataset):
 
     def __repr__(self):
 
-        s_d = {_: repr(self._datasets[_]) + type(self._datasets[_]).__name__ for _ in self._datasets}
+        s_d = {_: repr(self._datasets[_]) for _ in self._datasets}
 
         for sub in s_d:
 
