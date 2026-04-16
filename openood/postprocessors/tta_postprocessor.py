@@ -46,7 +46,7 @@ class PadBuffer(deque):
         b_ = []
         for b in dl:
             pred, conf = self.postprocess(net, b['data'], pred=None if and_pred else b['pred'])
-            b['pred'] pred
+            b['pred'] = pred
             b['conf'] = conf
 
             b_.append(b)
