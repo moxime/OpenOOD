@@ -130,11 +130,21 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         return w
 
     @timedfunc('init epoch')
-    def init_epoch(self, *a, epoch=0, epochs=0, **kw):
+    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
         self._epoch = epoch
         if self.calculate_conf(epoch, epochs):
             print('*** epoch {} ***'.format(epoch))
-        super().init_epoch(*a, epoch=epoch, **kw)
+
+            """ fc params """
+
+            weight, bias = net.get_fc()
+
+            print('*** b_y:', ' - '.join(map('{:.2f}'.format, bias)))
+            print('*** ||my||²:', ' - '.join(map('{:.2f}'.format, (weight**2).sum(-1))))
+            print('*** <my>:', ' - '.join(map('{:.2f}'.format, weight.mean(-1))))
+
+        super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
     @timedfunc('post process')
     def postprocess(self, *a, **kw):
