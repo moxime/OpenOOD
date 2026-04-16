@@ -106,6 +106,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self._inspector.epoch = epoch
 
         printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
+        printout = flush
         self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
         if printout:
             self._inspector.print()
