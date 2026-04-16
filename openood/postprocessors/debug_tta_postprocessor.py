@@ -64,7 +64,7 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(DistTTAPostprocessor):
+class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
