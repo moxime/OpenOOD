@@ -98,7 +98,7 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         for _ in self.aux_dls:
 
             d = self.aux_dls[_].dataset
-            print('*** aux_dl[{}]: {} {}'.format(_, d, type(d)))
+            print('*** aux_dl[{}]: {}'.format(_, d))
 
         self.setup_flag = True
 
@@ -113,7 +113,13 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} samples ({}) to pad_{}'.format(n, len(self.pad_buffers[where]), where))
+        print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
+                                                                  N=len(conf),
+                                                                  l=len(self.pad_buffers[where]),
+                                                                  w=where))
+
+        print('*** x = {:.3f}+/-{:.3f}    [n={}]'.format(data.mean(), data.std(), len(data)))
+
         return n
 
     # @timedfunc('loss weight')
