@@ -18,11 +18,12 @@ import torchvision
 
 class PadBuffer(deque):
 
-    def __init__(self, size, threshold, thr_key='conf'):
+    def __init__(self, size, threshold, thr_key='conf', postprocessor=None):
 
         super().__init__(maxlen=size)
         self._thr_key = thr_key
         self.threshold = threshold
+        self.postprocessor = postprocessor
 
     def append(self, **kw):
 
@@ -39,6 +40,25 @@ class PadBuffer(deque):
                 self.pop()
             except IndexError:
                 break
+
+    def update_conf(self, net, batch_size=32, and_pred=False):
+        if not self.postprocessor:
+            return
+
+        dl = DataLoader(self, batch_size=batch_size, drop_last=False, shuffle=False)
+
+        b_ = []
+        for b in dl:
+            pred, conf = self.postprocessor.postprocess(net, b['data'], pred=None if and_pred else b['pred'])
+            b['pred'] = pred
+            b['conf'] = conf
+
+            b = [dict(zip(b, t)) for t in zip(*b.values())]
+            b_.extend(b)
+
+        for old, new in zip(self, b_):
+            old['pred'] = new['pred']
+            old['conf'] = new['conf']
 
     def save(self, path):
 
@@ -82,7 +102,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         aux_dls = id_ood_loader_dict['aux']
         self.aux_dls = {_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes}
-        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_])
+        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
         pass
@@ -268,6 +288,9 @@ class TTAPostprocessor(BasePostprocessor):
                     pred, conf = self.postprocess(net, data, pred=pred)
                     for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                         outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
+
+                    if self.pad_buffers.get('ood'):
+                        self.pad_buffers['ood'].update_conf(net, self.batch_size, and_pred=True)
 
                 self.init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
