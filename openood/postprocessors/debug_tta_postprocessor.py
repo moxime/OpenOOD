@@ -52,9 +52,9 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
     str_ = [type(obj)]
 
     if isinstance(obj, torch.utils.data.dataloader.DataLoader):
-        str_l = '{N}= {n}x{m} s: {s} from '.format(n=len(obj), m=obj.batch_size,
-                                                   N=len(obj) * obj.batch_size,
-                                                   s=type(obj.sampler).__name__[0])
+        str_l = '{N}= {n}x{m} s: {s} from {}'.format(n=len(obj), m=obj.batch_size,
+                                                     N=len(obj) * obj.batch_size,
+                                                     s=type(obj.sampler).__name__[0], type(obj))
         d_str_ = str(obj.dataset).split('\n')
 
         str_ = [(' ' * len(str_l) if i else str_l) + _ for i, _ in enumerate(d_str_)]
