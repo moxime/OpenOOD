@@ -7,5 +7,3 @@ network:
   # default pretrained model: https://download.pytorch.org/models/resnet50-0676ba61.pth
   checkpoint: ./checkpoints/resnet50-0676ba61.pth           # ignore if pretrained is false
   num_gpus: '@{num_gpus}'
-dataset:
-  normalization_type: resnet50
