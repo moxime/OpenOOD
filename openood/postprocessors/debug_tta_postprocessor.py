@@ -142,6 +142,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
 
             print('*** b_y:', ' - '.join(map('{:.2f}'.format, bias)))
             print('*** ||my||²:', ' - '.join(map('{:.2f}'.format, (weight**2).sum(-1))))
+            print('*** <my>:', ' - '.join(map('{:.2f}'.format, weight.mean(-1))))
 
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
