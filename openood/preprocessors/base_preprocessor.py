@@ -57,4 +57,5 @@ class BasePreprocessor():
         return self.transform(image)
 
     def __repr__(self):
+        return str(self.transform[-1])
         return ''.join(map(str.strip, self.transform.__repr__().split('\n')))
