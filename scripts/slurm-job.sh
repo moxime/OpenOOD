@@ -120,7 +120,7 @@ python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/preprocessors/base_preprocessor.yml \
        configs/pipelines/test/test_tta_ood.yml \
        configs/postprocessors/$method.yml \
-       --output_dir results/$git_branch \
+       --output_dir results/$USER/$git_branch \
        --network.checkpoint $ckpt \
        --seed $seed \
        --mark $SLURM_JOB_ID \
