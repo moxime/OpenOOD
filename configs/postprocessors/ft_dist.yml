@@ -5,7 +5,7 @@ postprocessor:
     threshold: -2.
   ft:
     epochs: 100
-    beta: 1.
+    beta: 0.016
   postprocessor_args:
     mu_ood: zero
     max_iterations_per_phase: True
