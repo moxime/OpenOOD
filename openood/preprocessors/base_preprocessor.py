@@ -59,5 +59,5 @@ class BasePreprocessor():
     def __repr__(self):
         norm = self.transform.transforms[-1]
         m, s = norm.mean, norm.std
-        return '{} / {}'.format(m, s)
+        # return '{} / {}'.format(m, s)
         return ''.join(map(str.strip, self.transform.__repr__().split('\n')))
