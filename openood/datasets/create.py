@@ -31,8 +31,8 @@ if __name__ == '__main__':
     list_of_path = []
 
     for i, (im, y) in enumerate(lsunr):
-        impath = P(dset) / split / '{:04d}.jpg'.format(i)
-        # im.save(data_dir / impath, 'JPEG')
+        impath = P(dset) / split / '{:04d}.png'.format(i)
+        im.save(data_dir / impath, 'PNG')
         list_of_path.append(impath)
 
     random.shuffle(list_of_path)
