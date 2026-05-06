@@ -139,13 +139,16 @@ class FTTTAPostprocessor(TTAPostprocessor):
         else:
             w_normalization = (1., 1.)
 
+        mb_generator = torch.Generator().manual_seed(0)
+
         minibatch_loader = DataLoader(batch_list,
                                       shuffle=batch_list,  # if batch_list is empty, do not shuffle (bug)
                                       batch_size=self.batch_size,
-                                      drop_last=False)
+                                      generator=mb_generator,
+                                      drop_last=False)  # TBT: dop_last=True
 
         if epoch == 0:
-            # to track clipped_grad (removed, see below)
+            # to track clipped_grad (see below)
             self._clipped_grad = 0
             self._grad = 0
 
