@@ -154,9 +154,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            if not i:
-                h = hash(tuple(batch['data'].cpu().numpy().flatten()))
-                print('HASH:', h)
+            # if not i:
+            #     h = hash(tuple(batch['data'].cpu().numpy().flatten()))
+            #     print('HASH:', h)
 
             inspection_dict = {}
 
