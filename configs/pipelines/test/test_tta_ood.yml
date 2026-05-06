@@ -30,7 +30,7 @@ pipeline:
   # in the tested chunks, the ood source is randomly changed every ood_period (in average)
   # for instance: ood_period=1 will provide fully heterogeneous chunks of data
   # if ood_period is large (-1 for inf) we change ood when ood source is depleted
-  ood_period: 0.
+  ood_period: 1.
   
 evaluator:
   name: tta_ood
@@ -41,17 +41,17 @@ postprocessor:
   reload_network: True # reset network at new chunk
   # padding: 0. : no padding, -1: stratified
   padding:
-    id: 2.
+    id: -1.
     ood: 0.5
     self: 1.
     threshold:  # put x in pad_self if conf <= threshold, no value will be -inf
   ft: # defaults value for ft
     epochs: 0
-    lr: 5.0e-4
+    lr: 2.0e-3
     wd: 5.0e-4
     # unfreeze net for possible ft
     # in all, head, penultimate
-    unfreeze: penultimate
+    unfreeze: all 
     only_non_zeros: True
   
 recorder:

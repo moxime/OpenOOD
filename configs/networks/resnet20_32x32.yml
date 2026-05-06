@@ -3,7 +3,7 @@ network:
   num_classes: '@{dataset.num_classes}'
   margin: 0.
   pretrained: False          # set 'True' to load pretrained model
-  checkpoint: ./results/cifar10_resnet20/best.ckpt            # ignore if pretrained is false
+  checkpoint: ./checkpoints/cifar10_resnet20/best.ckpt            # ignore if pretrained is false
   num_gpus: '@{num_gpus}'
 
 dataset:
