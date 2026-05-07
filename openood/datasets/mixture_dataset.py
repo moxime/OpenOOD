@@ -278,6 +278,7 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     from torchvision.datasets import MNIST
+    import sys
 
     mnist_train = MNIST(root='~/dev/dnn/torch-data/')
 
@@ -453,9 +454,9 @@ if __name__ == '__main__':
     N = 10000
 
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
-    p_ = []
-    p_ = [1, 100, 1000, 10000, np.inf]
     p_ = [1e4]
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = []
 
     if p_:
         stream, entropy, batch = zip(*(test_mixture(K=4, N=N, period=period, fig=True)
@@ -464,11 +465,14 @@ if __name__ == '__main__':
     p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
     p_ = [10, 20, 50, 100, 200, 500]
     p_ = [1]
-    p_ = [1,  np.inf]
-    p_ = [1, 100, 1000, 10000, np.inf]
     p_ = []
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = [1,  np.inf]
 
     if p_:
         dset, loader, stats = zip(*(test_ind_ood_sampler(N=N, ood_ratio=0.1, n_oods=4,
                                                          period=period, fig=True)
                                     for period in p_))
+
+    if sys.argv[0]:
+        input()
