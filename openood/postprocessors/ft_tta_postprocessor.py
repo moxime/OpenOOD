@@ -140,7 +140,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             w_normalization = (1., 1.)
 
         mb_generator = torch.Generator().manual_seed(0)
-        mb_generator = None
 
         minibatch_loader = DataLoader(batch_list,
                                       shuffle=batch_list,  # if batch_list is empty, do not shuffle (bug)
