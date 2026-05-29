@@ -1,5 +1,5 @@
 network:
-xo  name: resnet18_32x32
+  name: resnet18_32x32
   num_classes: '@{dataset.num_classes}'
   pretrained: False          # set 'True' to load pretrained model
   checkpoint: ./checkpoints/cifar10_resnet18_32x32_base_e100_lr0.1_default/s0/best.ckpt            # ignore if pretrained is false
