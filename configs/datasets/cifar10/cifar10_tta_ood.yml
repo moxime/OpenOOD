@@ -10,7 +10,7 @@ ood_dataset:
   batch_size: 128 # for mini batch fine tuning, see chunk_size in test_tta_ood pipeline for size of chunks
 
   padding:
-    datasets: [lsunr]
+    datasets: [patched_id]
 
     lsunr:
       data_dir: ./data/images_classic/
@@ -20,6 +20,18 @@ ood_dataset:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_svhn.txt
 
+    patched_id:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/train_cifar10.txt
+      preprocessor:
+        name: patch
+        preprocessor_args:
+          - patch
+          - cutout
+          - mixup
+          - noise
+          - blur
+          - geometric
 
   split_names: [val, nearood, farood, mixture]
 

@@ -57,7 +57,4 @@ class BasePreprocessor():
         return self.transform(image)
 
     def __repr__(self):
-        norm = self.transform.transforms[-1]
-        m, s = norm.mean, norm.std
-        # return '{} / {}'.format(m, s)
-        return ''.join(map(str.strip, self.transform.__repr__().split('\n')))
+        return type(self).__name__ + ':\n' + '\n   '.join(map(str, self.transform.transforms))
