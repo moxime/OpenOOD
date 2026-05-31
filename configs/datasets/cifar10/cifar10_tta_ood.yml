@@ -20,6 +20,12 @@ ood_dataset:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar10/test_svhn.txt
 
+    patched_id:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/train_cifar10.txt
+
+    preprocessor:
+      name: patch
 
   split_names: [val, nearood, farood, mixture]
 

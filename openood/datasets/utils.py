@@ -136,8 +136,8 @@ def get_tta_ood_dataloader(config: Config):
                 imglist_pth=dataset_config.imglist_pth,
                 data_dir=dataset_config.data_dir,
                 num_classes=ood_config.num_classes,
-                preprocessor=get_preprocessor(config, 'padding'),
-                data_aux_preprocessor=data_aux_preprocessor)
+                preprocessor=get_preprocessor(config, dataset_config.get('preprocessor', 'base')),
+                data_aux_preprocessor=get_preprocessor(config, split='padding'))
             padding_subssets[dataset_name] = dataset
 
         padding_set = MixtureDataset(**padding_subssets)
