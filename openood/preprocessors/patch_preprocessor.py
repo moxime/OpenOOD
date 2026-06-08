@@ -23,8 +23,8 @@ class RandomPatch:
             mode = random.choice(('black', 'noise', 'color', 'shuffle'))
             patch = self._create_patch(img, size, mode)
 
-            x = random.randint(H - size)
-            y = random.randint(W - size)
+            x = random.randint(0, H - size)
+            y = random.randint(0, W - size)
 
             img[:, x:x+size, y:y+size] = patch
 
@@ -59,8 +59,8 @@ class Cutout(RandomPatch):
         mode = random.choice(('black', 'noise'))
         patch = self._create_patch(img, size, mode)
 
-        x = random.randint(H - size)
-        y = random.randint(W - size)
+        x = random.randint(0, H - size)
+        y = random.randint(0, W - size)
 
         img[:, x:x+size, y:y+size] = patch
 
