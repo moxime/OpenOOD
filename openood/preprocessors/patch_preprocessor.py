@@ -23,8 +23,8 @@ class RandomPatch:
             mode = random.choice(('black', 'noise', 'color', 'shuffle'))
             patch = self._create_patch(img, size, mode)
 
-            x = random.randint(H - size)
-            y = random.randint(W - size)
+            x = random.randint(0, H - size)
+            y = random.randint(0, W - size)
 
             img[:, x:x+size, y:y+size] = patch
 
@@ -32,11 +32,11 @@ class RandomPatch:
 
     def _create_patch(self, img, size, mode):
         C, H, W = img.shape
-        if self.t == 'black':
+        if mode == 'black':
             patch = torch.zeros((C, size, size), device=img.device)
-        elif self.t == 'noise':
+        elif mode == 'noise':
             patch = torch.randn((C, size, size), device=img.device)
-        elif self.t == 'color':
+        elif mode == 'color':
             patch = torch.rand((C, 1, 1), device=img.device).expand(C, size, size)*2-1
         else:  # shuffle patch
             y2 = random.randint(0, H-size)
@@ -59,8 +59,8 @@ class Cutout(RandomPatch):
         mode = random.choice(('black', 'noise'))
         patch = self._create_patch(img, size, mode)
 
-        x = random.randint(H - size)
-        y = random.randint(W - size)
+        x = random.randint(0, H - size)
+        y = random.randint(0, W - size)
 
         img[:, x:x+size, y:y+size] = patch
 
@@ -95,6 +95,29 @@ class Mixup:
         return 'Mixup'
 
 
+class GaussianNoise:
+
+    def __init__(self, mean=0, sigma=0.1, clip=True):
+
+        self.mean = mean
+        self.sigma = sigma
+        self.clip = clip
+
+    def __call__(self, img):
+
+        noise = torch.randn_like(img)
+
+        img_ = img + self.mean + self.sigma * noise
+        if not self.clip:
+            return img_
+
+        return img_.clip(0, 1)
+
+    def __repr__(self):
+
+        return 'GaussianNoise(mean={}, std={}{})'.format(self.mean, self.sigma, ', <>' if self.clip else '')
+
+
 class PatchPreprocessor(TestStandardPreProcessor):
     """For patched dataset for outlier exposure"""
 
@@ -119,7 +142,7 @@ class PatchPreprocessor(TestStandardPreProcessor):
             elif p == 'mixup':
                 t = Mixup()
             elif p == 'noise':
-                t = tvs_trans_v2.GaussianNoise(0, 0.05, clip=True)
+                t = GaussianNoise(0, 0.05, clip=True)
             elif p == 'blur':
                 t = tvs_trans.RandomApply([tvs_trans.GaussianBlur((3, 3),
                                                                   (0.1, 1.0))],
