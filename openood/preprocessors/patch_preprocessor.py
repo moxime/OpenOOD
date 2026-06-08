@@ -32,11 +32,11 @@ class RandomPatch:
 
     def _create_patch(self, img, size, mode):
         C, H, W = img.shape
-        if self.t == 'black':
+        if mode == 'black':
             patch = torch.zeros((C, size, size), device=img.device)
-        elif self.t == 'noise':
+        elif mode == 'noise':
             patch = torch.randn((C, size, size), device=img.device)
-        elif self.t == 'color':
+        elif mode == 'color':
             patch = torch.rand((C, 1, 1), device=img.device).expand(C, size, size)*2-1
         else:  # shuffle patch
             y2 = random.randint(0, H-size)
