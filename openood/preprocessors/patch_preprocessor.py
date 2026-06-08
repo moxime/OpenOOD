@@ -95,6 +95,29 @@ class Mixup:
         return 'Mixup'
 
 
+class GaussianNoise:
+
+    def __init__(self, mean=0, sigma=0.1, clip=True):
+
+        self.mean = mean
+        self.sigma = sigma
+        self.clip = clip
+
+    def __call__(self, img):
+
+        noise = torch.randn_like(img)
+
+        img_ = img + self.mean + self.sigma * noise
+        if not self.clip:
+            return img_
+
+        return img_.clip(0, 1)
+
+    def __repr__(self):
+
+        return 'GaussianNoise(mean={}, std={}{})'.format(self.mean, self.sigma, ', <>' if self.clip else '')
+
+
 class PatchPreprocessor(TestStandardPreProcessor):
     """For patched dataset for outlier exposure"""
 
@@ -119,7 +142,7 @@ class PatchPreprocessor(TestStandardPreProcessor):
             elif p == 'mixup':
                 t = Mixup()
             elif p == 'noise':
-                t = tvs_trans_v2.GaussianNoise(0, 0.05, clip=True)
+                t = GaussianNoise(0, 0.05, clip=True)
             elif p == 'blur':
                 t = tvs_trans.RandomApply([tvs_trans.GaussianBlur((3, 3),
                                                                   (0.1, 1.0))],
