@@ -11,7 +11,7 @@ from .randaugment_preprocessor import RandAugmentPreprocessor
 from .cutout_preprocessor import CutoutPreprocessor
 from .test_preprocessor import TestStandardPreProcessor
 from .palm_preprocessor import PALMPreprocessor
-from .padding_preprocessor import PaddingPreprocessor
+from .patch_preprocessor import PatchPreprocessor
 
 
 def get_preprocessor(config: Config, split):
@@ -32,10 +32,14 @@ def get_preprocessor(config: Config, split):
         'draem': DRAEMPreprocessor,
         'cutpaste': CutPastePreprocessor,
     }
+    padding_preprocessors = {
+        'base': TestStandardPreProcessor,
+        'patch': PatchPreprocessor
+    }
 
     if split == 'train':
         return train_preprocessors.get(config.preprocessor.name, 'base')(config)
     elif split == 'padding':
-        raise PaddingPreprocessor(config)
+        return padding_preprocessors[config.ood_dataset.preprocessor.get('name', 'base')](config)
     else:
         return test_preprocessors.get(config.preprocessor.name, 'base')(config)

@@ -26,6 +26,12 @@ ood_dataset:
 
     preprocessor:
       name: patch
+      preprocessor_args:
+        - patch
+        - cutout
+        - mixup
+        - blur
+        - geometric
 
   split_names: [val, nearood, farood, mixture]
 
