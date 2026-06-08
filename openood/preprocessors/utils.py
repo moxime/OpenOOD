@@ -32,14 +32,10 @@ def get_preprocessor(config: Config, split):
         'draem': DRAEMPreprocessor,
         'cutpaste': CutPastePreprocessor,
     }
-    padding_preprocessors = {
-        'base': TestStandardPreProcessor,
-        'patch': PatchPreprocessor
-    }
 
     if split == 'train':
         return train_preprocessors.get(config.preprocessor.name, 'base')(config)
-    elif split == 'padding':
-        return padding_preprocessors[config.ood_dataset.preprocessor.get('name', 'base')](config)
+    elif split.startswith('padding.'):
+        return PatchPreprocessor(config, split=split)
     else:
         return test_preprocessors.get(config.preprocessor.name, 'base')(config)

@@ -90,24 +90,26 @@ class Mixup:
 
         return (1 - alpha) * img + alpha * img2
 
+    def __repr__(self):
 
-# class GaussianNoise:
-
-#     def __init__(self, sigma=0.05, clip=True):
-
-#         self.sigma = 0.05
-
-#     def __call__(self, img):
-
-#         return img + self.sigma * torch.randn_like(img)
+        return 'Mixup'
 
 
 class PatchPreprocessor(TestStandardPreProcessor):
     """For patched dataset for outlier exposure"""
 
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, split=None):
         super().__init__(config)
-        self.preprocessor_args = config.ood_dataset.padding.preprocessor.get('preprocessor_args', {})
+        if not split:
+            return
+
+        dataset_name = split.split('.')[-1]
+        preprocessor_config = config.ood_dataset.padding.get(dataset_name, {}).get('preprocessor', {})
+        preprocessor_name = preprocessor_config.get('name', 'base')
+        if preprocessor_name == 'base':
+            return
+
+        self.preprocessor_args = preprocessor_config.get('preprocessor_args', {})
 
         for p in self.preprocessor_args:
             if p == 'cutout':
@@ -116,12 +118,12 @@ class PatchPreprocessor(TestStandardPreProcessor):
                 t = RandomPatch()
             elif p == 'mixup':
                 t = Mixup()
+            elif p == 'noise':
+                t = tvs_trans_v2.GaussianNoise(0, 0.05, clip=True)
             elif p == 'blur':
-                t = tvs_trans.Compose([tvs_trans_v2.GaussianNoise(0, 0.05, clip=True),
-                                       tvs_trans.RandomApply(tvs_trans.GaussianBlur((3, 3),
-                                                                                    (0.1, 1.0)),
-                                                             p=0.5)
-                                       ])
+                t = tvs_trans.RandomApply([tvs_trans.GaussianBlur((3, 3),
+                                                                  (0.1, 1.0))],
+                                          p=0.5)
             elif p == 'geometric':
                 t = tvs_trans.RandomAffine(15, translate=(0.1, 0.1))
             else:
@@ -129,10 +131,6 @@ class PatchPreprocessor(TestStandardPreProcessor):
 
             # insert t before normalization
             self.transform.transforms.insert(-1, t)
-
-    def __repr__(self):
-
-        return super().__repr__() + '>'.join(map(str.capitalize, self.preprocessor_args))
 
 
 if __name__ == '__main__':
@@ -144,6 +142,7 @@ if __name__ == '__main__':
 
     config = Config(str(config_dir / 'cifar10.yml'), str(config_dir / 'cifar10_tta_ood.yml'))
 
-    p = PatchPreprocessor(config)
+    p = PatchPreprocessor(config, 'padding.lsunr')
+    p = PatchPreprocessor(config, 'padding.patched_id')
 
     print(p)
