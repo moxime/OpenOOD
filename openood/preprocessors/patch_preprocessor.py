@@ -111,7 +111,7 @@ class GaussianNoise:
         if not self.clip:
             return img_
 
-        return img_.clip(0, 1)
+        return img_.clip(-1, 1)
 
     def __repr__(self):
 
@@ -152,8 +152,8 @@ class PatchPreprocessor(TestStandardPreProcessor):
             else:
                 raise NotImplementedError('{} transform'.format(p))
 
-            # insert t before normalization
-            self.transform.transforms.insert(-1, t)
+            # insert t after normalization
+            self.transform.transforms.append(t)
 
 
 if __name__ == '__main__':
