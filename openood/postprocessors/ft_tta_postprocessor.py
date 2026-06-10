@@ -91,7 +91,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         implement this methd in child class for debug purpose
         """
-        if not hasattr(self, '_debug'):
+
+        try:
+            if not self._debug:
+                return
+        except AttributeError:
             return
 
         if flush:

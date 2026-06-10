@@ -24,10 +24,11 @@ from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 def timedfunc(message):
     def wrapper(func):
-        def wrapped(*a, **kw):
+        def wrapped(obj, *a, **kw):
             t0 = time.time()
-            out = func(*a, **kw)
-            # print('{} executed in {:.2g}s'.format(message, time.time() - t0))
+            out = func(obj, *a, **kw)
+            if hasattr(obj, '_timefunc') and getattr(obj, '_timefunc'):
+                print('{} executed in {:.2g}s'.format(message, time.time() - t0))
             return out
         return wrapped
     return wrapper
@@ -64,113 +65,141 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(DistTTAPostprocessor):
-    def __init__(self, config):
-        super().__init__(config)
-        self.setup_flag = False
-        self._debug = True
-        self._epoch = -1
+def debug_tta(cls):
 
-    def reload_network(self, net):
+    def debugged(func):
 
-        super().reload_network(net)
-        print('*** reloaded network')
+        def debuggedfunc(obj, *a, **kw):
+            obj._debug_now = obj._debug
+            obj._debug = False
+            out = func(obj, *a, **kw)
+            obj._debug = obj._debug_now
+            return out
 
-    def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
-        if self.setup_flag:
-            return
-        super().setup(net, id_loader_dict, ood_loader_dict)
-        # self.loss = timedfunc('loss')(self.loss)
+        return debuggedfunc
 
-        print('ID LOADER DICT')
-        _unfold_(id_loader_dict)
+    class DebugTTAPostprocessor(cls):
+        def __init__(self, config):
+            super().__init__(config)
+            self.setup_flag = False
+            self._debug = True
+            self._timefunc = False
+            self._epoch = -1
 
-        print('OOD LOADER DICT')
-        _unfold_(ood_loader_dict)
+        @debugged
+        def reload_network(self, net):
 
-        for name, sub in net.named_children():
+            super().reload_network(net)
+            if self._debug_now:
+                print('*** reloaded network')
 
-            assert (not any(_.requires_grad for _ in sub.parameters()) or
-                    all(_.requires_grad for _ in sub.parameters()))
+        @debugged
+        def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
+            if self.setup_flag:
+                return
+            super().setup(net, id_loader_dict, ood_loader_dict)
+            # self.loss = timedfunc('loss')(self.loss)
 
-            print('****', name, any(_.requires_grad for _ in sub.parameters()))
+            if not self._debu_now:
+                return
+            print('ID LOADER DICT')
+            _unfold_(id_loader_dict)
 
-        for _ in self.aux_dls:
+            print('OOD LOADER DICT')
+            _unfold_(ood_loader_dict)
 
-            d = self.aux_dls[_].dataset
-            print('*** aux_dl[{}]: {}'.format(_, d))
+            for name, sub in net.named_children():
 
-        self.setup_flag = True
+                assert (not any(_.requires_grad for _ in sub.parameters()) or
+                        all(_.requires_grad for _ in sub.parameters()))
 
-    def calculate_conf(self, epoch=0, epochs=0):
+                print('****', name, any(_.requires_grad for _ in sub.parameters()))
 
-        b = super().calculate_conf(epoch=epoch, epochs=epochs)
-        if b:
-            pass  # print('*** Calculating conf ({})'.format(epoch))
-        return b
+            for _ in self.aux_dls:
 
-    @timedfunc('update pad buffers')
-    def update_pad_buffers(self, data, conf, pred, where='self', **kw):
+                d = self.aux_dls[_].dataset
+                print('*** aux_dl[{}]: {}'.format(_, d))
 
-        n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
-                                                                  N=len(conf),
-                                                                  l=len(self.pad_buffers[where]),
-                                                                  w=where))
+        @debugged
+        def calculate_conf(self, epoch=0, epochs=0):
 
-        print('*** x = {:.3f}+/-{:.3f}    [n={}]'.format(data.mean(), data.std(), len(data)))
+            b = super().calculate_conf(epoch=epoch, epochs=epochs)
+            if b and self._debug_now:
+                pass  # print('*** Calculating conf ({})'.format(epoch))
+            return b
 
-        return n
+        @timedfunc('update pad buffers')
+        @debugged
+        def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
-    # @timedfunc('loss weight')
-    def losses_weight(self, **kw):
-        w = super().losses_weight(**kw)
-        # if epoch in (epochs // 3, 2 * epochs // 3):
-        #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
-        return w
+            n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
 
-    @timedfunc('init epoch')
-    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+            if self._debug_now:
+                print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
+                                                                          N=len(conf),
+                                                                          l=len(self.pad_buffers[where]),
+                                                                          w=where))
 
-        self._epoch = epoch
-        if self.calculate_conf(epoch, epochs):
-            print('*** epoch {} ***'.format(epoch))
+                print('*** x = {:.3f}+/-{:.3f}    [n={}]'.format(data.mean(), data.std(), len(data)))
 
-            """ fc params """
+            return n
 
-            weight, bias = net.get_fc()
+        # @timedfunc('loss weight')
+        @debugged
+        def losses_weight(self, **kw):
+            w = super().losses_weight(**kw)
+            # if epoch in (epochs // 3, 2 * epochs // 3):
+            #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
+            return w
 
-            print('*** b_y:', ' - '.join(map('{:.2f}'.format, bias)))
-            print('*** ||my||²:', ' - '.join(map('{:.2f}'.format, (weight**2).sum(-1))))
-            print('*** <my>:', ' - '.join(map('{:.2f}'.format, weight.mean(-1))))
+        @timedfunc('init epoch')
+        @debugged
+        def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
-        super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
+            self._epoch = epoch
+            if self.calculate_conf(epoch, epochs) and self._debug_now:
+                print('*** epoch {} ***'.format(epoch))
 
-    @timedfunc('post process')
-    def postprocess(self, *a, **kw):
-        pred, conf = super().postprocess(*a, **kw)
+                """ fc params """
 
-        t = self.pad_thresholds['self']
-        a = [0.05, 0.5, 0.95]
-        conf_ = conf.detach().cpu().numpy()
-        q = np.quantile(conf_, a)
-        q_ = dict(zip(q, a))
-        q_[t] = (conf_ < t).mean()
-        q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
+                weight, bias = net.get_fc()
 
-        print('[chunk ({}) calculated conf at epoch {}]'.format(len(conf_), self._epoch),
-              ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+                print('*** b_y:', ' - '.join(map('{:.2f}'.format, bias)))
+                print('*** ||my||²:', ' - '.join(map('{:.2f}'.format, (weight**2).sum(-1))))
+                print('*** <my>:', ' - '.join(map('{:.2f}'.format, weight.mean(-1))))
 
-        return pred, conf
+            super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
-    @timedfunc('adaptation loss')
-    def adaptation_loss(self, *a, **kw):
-        return super().adaptation_loss(*a, **kw)
+        @timedfunc('post process')
+        @debugged
+        def postprocess(self, *a, **kw):
+            pred, conf = super().postprocess(*a, **kw)
 
-    @timedfunc('FT')
-    def finetune(self, *a, **kw):
-        return super().finetune(*a, **kw)
+            if self._debug_now:
+                t = self.pad_thresholds['self']
+                a = [0.05, 0.5, 0.95]
+                conf_ = conf.detach().cpu().numpy()
+                q = np.quantile(conf_, a)
+                q_ = dict(zip(q, a))
+                q_[t] = (conf_ < t).mean()
+                q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
 
-    @timedfunc('next batch')
-    def next_pad_batch(self, *a, **kw):
-        return super().next_aux_batch(*a, **kw)
+                print('[chunk ({}) calculated conf at epoch {}]'.format(len(conf_), self._epoch),
+                      ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+
+            return pred, conf
+
+        @timedfunc('adaptation loss')
+        @debugged
+        def adaptation_loss(self, *a, **kw):
+            return super().adaptation_loss(*a, **kw)
+
+        @timedfunc('FT')
+        def finetune(self, *a, **kw):
+            return super().finetune(*a, **kw)
+
+        @timedfunc('next batch')
+        def next_pad_batch(self, *a, **kw):
+            return super().next_aux_batch(*a, **kw)
+
+    return DebugTTAPostprocessor
