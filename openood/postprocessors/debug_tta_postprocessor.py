@@ -195,7 +195,6 @@ def debug_tta(cls):
         @debugged
         def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
 
-            print('***', self._debug, self._debug_now)
             if not self._debug_now:
                 return
 
