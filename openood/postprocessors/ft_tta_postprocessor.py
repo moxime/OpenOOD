@@ -5,7 +5,6 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from .tta_postprocessor import TTAPostprocessor
 
-from .batch_inspector import BatchInspector
 
 from openood.losses import uniform_ce, MarginCrossEntropy
 
@@ -91,29 +90,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         implement this methd in child class for debug purpose
         """
-
-        try:
-            print('***', self._debug, self._debug_now)
-            if not self._debug_now:
-                return
-        except AttributeError:
-            return
-
-        if flush:
-            for _ in self.pad_buffers:
-                p = self.pad_buffers[_].save(os.path.join(self.config.output_dir,
-                                                          'pad_{}_{}.png'.format(_, epoch)))
-
-        if not hasattr(self, '_inspector'):
-            self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
-
-        self._inspector.epoch = epoch
-
-        printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
-        printout = flush
-        self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
-        if printout:
-            self._inspector.print()
+        pass
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times

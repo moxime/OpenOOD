@@ -2,11 +2,12 @@ import pandas as pd
 import openood.utils.comm as comm
 from .info import num_classes_dict
 from typing import Any
+from .batch_inspector import BatchInspector
 
 import numpy as np
 import torch
 import torch.nn as nn
-
+import os
 
 import time
 
@@ -60,9 +61,9 @@ def debug_tta(cls):
 
         def debuggedfunc(obj, *a, **kw):
             obj._debug_now = obj._debug
-            obj._debug = False
+            # obj._debug = False
             out = func(obj, *a, **kw)
-            obj._debug = obj._debug_now
+            # obj._debug = obj._debug_now
             return out
 
         return debuggedfunc
@@ -190,5 +191,27 @@ def debug_tta(cls):
         @timedfunc('next batch')
         def next_pad_batch(self, *a, **kw):
             return super().next_aux_batch(*a, **kw)
+
+        @debugged
+        def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
+
+            if not self._debug_now:
+                return
+
+            if flush:
+                for _ in self.pad_buffers:
+                    p = self.pad_buffers[_].save(os.path.join(self.config.output_dir,
+                                                              'pad_{}_{}.png'.format(_, epoch)))
+
+            if not hasattr(self, '_inspector'):
+                self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
+
+            self._inspector.epoch = epoch
+
+            printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
+            printout = flush
+            self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
+            if printout:
+                self._inspector.print()
 
     return DebugTTAPostprocessor
