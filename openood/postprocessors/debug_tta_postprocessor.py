@@ -61,9 +61,9 @@ def debug_tta(cls):
 
         def debuggedfunc(obj, *a, **kw):
             obj._debug_now = obj._debug
-            obj._debug = False
+            # obj._debug = False
             out = func(obj, *a, **kw)
-            obj._debug = obj._debug_now
+            # obj._debug = obj._debug_now
             return out
 
         return debuggedfunc
