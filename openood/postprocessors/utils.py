@@ -97,7 +97,6 @@ def get_postprocessor(config: Config):
         't2fnorm': T2FNormPostprocessor,
         'neco': NeCOPostprocessor,
         'tta': TTAPostprocessor,
-        'debug': DebugTTAPostprocessor,
         'ft': FTTTAPostprocessor,
         'ft_ortho': OrthoTTAPostprocessor,
         'ft_dist': DistTTAPostprocessor
