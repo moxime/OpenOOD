@@ -189,8 +189,8 @@ def debug_tta(cls):
             return super().finetune(*a, **kw)
 
         @timedfunc('next batch')
-        def next_pad_batch(self, *a, **kw):
-            return super().next_aux_batch(*a, **kw)
+        def next_aux_minibatch(self, *a, **kw):
+            return super().next_aux_minibatch(*a, **kw)
 
         @debugged
         def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):

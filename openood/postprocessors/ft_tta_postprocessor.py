@@ -59,8 +59,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     break
 
     def next_aux_minibatch(self, where):
+        """
+         fetch next aux batch from aux_dl (recreate iter on stop iteration)
+         """
 
-        assert where in self.stratified, '{} is ot stratified'.format(where)
+        assert where in self.stratified, '{} is not stratified'.format(where)
         try:
             return next(self._aux_iters[where])
         except AttributeError:

@@ -123,21 +123,6 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in self.pad_buffers:
             self.pad_buffers[_].empty()
 
-    def next_aux_batch(self, where):
-        """
-        fetch next aux batch from aux_dl (recreate iter on stop iteration)
-        """
-        assert where in self.pad_buffers, '{} is not used for padding'.format(where)
-
-        try:
-            return next(self._aux_iters[where])
-        except AttributeError:
-            self._aux_iters = {}
-        except (KeyError, StopIteration):
-            self._aux_iters[where] = iter(self.aux_dls[where])
-
-        return self.next_aux_batch(where)
-
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
         """ add x from data to pad_buffer[where], depending on conf and predicted label
 
