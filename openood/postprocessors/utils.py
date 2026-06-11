@@ -45,7 +45,6 @@ from .gen_postprocessor import GENPostprocessor
 from .relation_postprocessor import RelationPostprocessor
 from .neco_postprocessor import NeCOPostprocessor
 from .tta_postprocessor import TTAPostprocessor
-from .debug_tta_postprocessor import DebugTTAPostprocessor
 from .ft_tta_postprocessor import FTTTAPostprocessor
 from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
 from .ft_dist_tta_postprocessor import DistTTAPostprocessor
