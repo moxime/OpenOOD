@@ -89,7 +89,7 @@ def debug_tta(cls):
             super().setup(net, id_loader_dict, ood_loader_dict)
             # self.loss = timedfunc('loss')(self.loss)
 
-            if not self._debu_now:
+            if not self._debug_now:
                 return
             print('ID LOADER DICT')
             _unfold_(id_loader_dict)
