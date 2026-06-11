@@ -93,7 +93,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
 
         try:
-            if not self._debug:
+            print('***', self._debug, self._debug_now)
+            if not self._debug_now:
                 return
         except AttributeError:
             return
