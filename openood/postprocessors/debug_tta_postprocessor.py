@@ -60,10 +60,7 @@ def debug_tta(cls):
     def debugged(func):
 
         def debuggedfunc(obj, *a, **kw):
-            obj._debug_now = obj._debug
-            # obj._debug = False
             out = func(obj, *a, **kw)
-            # obj._debug = obj._debug_now
             return out
 
         return debuggedfunc
@@ -80,7 +77,7 @@ def debug_tta(cls):
         def reload_network(self, net):
 
             super().reload_network(net)
-            if self._debug_now:
+            if self._debug:
                 print('*** reloaded network')
 
         @debugged
@@ -90,7 +87,7 @@ def debug_tta(cls):
             super().setup(net, id_loader_dict, ood_loader_dict)
             # self.loss = timedfunc('loss')(self.loss)
 
-            if not self._debug_now:
+            if not self._debug:
                 return
             print('ID LOADER DICT')
             _unfold_(id_loader_dict)
@@ -114,7 +111,7 @@ def debug_tta(cls):
         def calculate_conf(self, epoch=0, epochs=0):
 
             b = super().calculate_conf(epoch=epoch, epochs=epochs)
-            if b and self._debug_now:
+            if b and self._debug:
                 pass  # print('*** Calculating conf ({})'.format(epoch))
             return b
 
@@ -124,7 +121,7 @@ def debug_tta(cls):
 
             n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
 
-            if self._debug_now:
+            if self._debug:
                 print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
                                                                           N=len(conf),
                                                                           l=len(self.pad_buffers[where]),
@@ -147,7 +144,7 @@ def debug_tta(cls):
         def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
             self._epoch = epoch
-            if self.calculate_conf(epoch, epochs) and self._debug_now:
+            if self.calculate_conf(epoch, epochs) and self._debug:
                 print('*** epoch {} ***'.format(epoch))
 
                 """ fc params """
@@ -165,7 +162,7 @@ def debug_tta(cls):
         def postprocess(self, *a, **kw):
             pred, conf = super().postprocess(*a, **kw)
 
-            if self._debug_now:
+            if self._debug:
                 t = self.pad_thresholds['self']
                 a = [0.05, 0.5, 0.95]
                 conf_ = conf.detach().cpu().numpy()
@@ -195,7 +192,7 @@ def debug_tta(cls):
         @debugged
         def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
 
-            if not self._debug_now:
+            if not self._debug:
                 return
 
             if flush:
