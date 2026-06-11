@@ -149,7 +149,7 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
                 continue
-            batch = self.next_aux_batch(_)
+            batch = self.next_aux_minibatch(_)
             data = batch['data'].cuda()
             if _ == 'id':
                 pred = batch['label'].cuda()
