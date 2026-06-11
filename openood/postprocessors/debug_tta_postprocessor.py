@@ -71,7 +71,7 @@ def debug_tta(cls):
         def __init__(self, config):
             super().__init__(config)
             self.setup_flag = False
-            self._debug = True
+            self._debug = config.postprocessor.debug
             self._timefunc = False
             self._epoch = -1
 
