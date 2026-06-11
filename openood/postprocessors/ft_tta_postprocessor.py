@@ -58,18 +58,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-    def next_aux_minibatch(self, where):
-
-        assert where in self.stratified, '{} is ot stratified'.format(where)
-        try:
-            return next(self._aux_iters[where])
-        except AttributeError:
-            self._aux_iters = {}
-        except (KeyError, StopIteration):
-            self._aux_iters[where] = iter(self.aux_dls[where])
-
-        return self.next_aux_minibatch(where)
-
     def adaptation_loss(self, logits, features, net):
 
         return uniform_ce(logits)
@@ -177,7 +165,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
-                batch_ = self.next_aux_minibatch(_)
+                batch_ = self.next_aux_batch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
                 if _ == 'ood':

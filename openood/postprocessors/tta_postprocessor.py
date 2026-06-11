@@ -125,10 +125,8 @@ class TTAPostprocessor(BasePostprocessor):
 
     def next_aux_batch(self, where):
         """
-        fetch next aux batch from aux_dl (recreate iter on stop iteration)
-        """
-        assert where in self.pad_buffers, '{} is not used for padding'.format(where)
-
+         fetch next aux batch from aux_dl (recreate iter on stop iteration)
+         """
         try:
             return next(self._aux_iters[where])
         except AttributeError:
