@@ -123,6 +123,19 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in self.pad_buffers:
             self.pad_buffers[_].empty()
 
+    def next_aux_batch(self, where):
+        """
+         fetch next aux batch from aux_dl (recreate iter on stop iteration)
+         """
+        try:
+            return next(self._aux_iters[where])
+        except AttributeError:
+            self._aux_iters = {}
+        except (KeyError, StopIteration):
+            self._aux_iters[where] = iter(self.aux_dls[where])
+
+        return self.next_aux_batch(where)
+
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
         """ add x from data to pad_buffer[where], depending on conf and predicted label
 
@@ -149,7 +162,7 @@ class TTAPostprocessor(BasePostprocessor):
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
                 continue
-            batch = self.next_aux_minibatch(_)
+            batch = self.next_aux_batch(_)
             data = batch['data'].cuda()
             if _ == 'id':
                 pred = batch['label'].cuda()
