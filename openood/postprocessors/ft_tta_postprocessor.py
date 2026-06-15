@@ -154,8 +154,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self.recorder.add_minibatch('batch', i, where=where,
                                         conf=conf,
                                         id_loss=id_loss,
-                                        adaptation_loss=adaptation_loss,
                                         id_weights=w_normalization[0] * weights.T[0],
+                                        adaptation_loss=adaptation_loss,
                                         adaptation_weigths=w_normalization[1] * weights.T[1])
 
             self.optimizer.zero_grad()
