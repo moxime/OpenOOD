@@ -24,12 +24,22 @@ class Events(dict):
         return True
 
 
-class BatchRecorder(dict):
+class MBRecorder(dict):
+    def update_minibatch(self, **kw):
+
+        for k, v in kw.items():
+            self.setdefault(k, []).append(v)
+
+
+class BatchRecorder(list):
 
     def add_minibatch(self, mb, **kw):
 
-        for k, v in kw.items():
-            self.defaultdict(k, []).append(v)
+        try:
+            self[mb].update_minibatch(**kw)
+        except IndexError:
+            self.append(MBRecorder())
+            self.add_minibatch(mb, **kw)
 
 
 class TTARecorder:
