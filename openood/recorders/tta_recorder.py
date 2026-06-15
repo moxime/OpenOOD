@@ -1,6 +1,8 @@
 import os
 import time
 from pathlib import Path
+import torch
+import numpy as np
 
 
 class Events(dict):
@@ -24,22 +26,40 @@ class Events(dict):
         return True
 
 
-class MBRecorder(dict):
-    def update_minibatch(self, **kw):
+class BatchRecorder(dict):
 
-        for k, v in kw.items():
-            self.setdefault(k, []).append(v)
-
-
-class BatchRecorder(list):
+    stats = {}
 
     def add_minibatch(self, mb, **kw):
+        for k, v in kw.items():
+            if isinstance(v, torch.Tensor):
+                v = v.detach().cpu()
 
-        try:
-            self[mb].update_minibatch(**kw)
-        except IndexError:
-            self.append(MBRecorder())
-            self.add_minibatch(mb, **kw)
+            v = np.asarray(v)
+            t = (v.shape[-1], v.sum(-1), (v**2).sum(-1))
+            self.setdefault(k, []).append(t)
+
+        self._compute_stats()
+
+    def _compute_stats(self):
+
+        self.stats['mean'] = dict()
+        self.stats['std'] = dict()
+
+        for k, mbs in self.items():
+
+            mean = 0
+            mean_square = 0
+            n = 0
+            for _ in mbs:
+                n += _[0]
+                mean += _[1]
+                mean_square += _[2]
+
+            mean /= n
+            mean_square /= n
+            self.stats['mean'][k] = mean
+            self.stats['std'][k] = np.sqrt(mean_square - mean**2)
 
 
 class TTARecorder:
@@ -64,6 +84,11 @@ class TTARecorder:
         if action == 'start':
             self.batch_recorder = BatchRecorder()
             return
+
+        if action == 'end':
+            for _ in self.batch_recorder.stats:
+                print('***', _)
+                print(self.batch_recorder.stats[_])
 
     def add_minibatch(self, mb, **kw):
 
