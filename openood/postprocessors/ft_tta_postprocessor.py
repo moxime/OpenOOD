@@ -137,8 +137,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            self.recorder.add_minibatch(i, where=where, conf=conf)
-
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
@@ -154,7 +152,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            self.recorder.add_minibatch(i, id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
+            self.recorder.add_minibatch('batch', i, where=where,
+                                        conf=conf,
+                                        id_loss=id_loss,
+                                        adaptation_loss=adaptation_loss,
+                                        id_weights=w_normalization[0] * weights.T[0],
+                                        adaptation_weigths=w_normalization[1] * weights.T[1])
 
             self.optimizer.zero_grad()
 
@@ -174,7 +177,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
-                self.recorder.add_minibatch(i, **{'stratified_loss_{}'.format(_): stratified_loss})
+                self.recorder.add_minibatch('strat', i, **{'stratified_{}'.format(_): stratified_loss})
                 loss += (w * stratified_loss).mean()
 
             loss.backward()
@@ -182,7 +185,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
             if grad_norm > 200:
                 self._clipped_grad += 1
-            self._grad += 1
-            self.optimizer.step()
+                self._grad += 1
+                self.optimizer.step()
 
         self.recorder.ft_epoch('end', epoch, epochs)

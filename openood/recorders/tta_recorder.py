@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 import torch
 import numpy as np
+import pandas as pd
 
 
 class Events(dict):
@@ -28,66 +29,55 @@ class Events(dict):
 
 class BatchRecorder(dict):
 
-    stats = {}
-    _dtypes = {}
+    def add_minibatch(self, df_k, i, split_keys=False, **kw):
 
-    def add_minibatch(self, mb, **kw):
+        if df_k not in self:
+            self[df_k] = pd.DataFrame()
+
         for k, v in kw.items():
             if isinstance(v, torch.Tensor):
-                v = v.detach().cpu()
+                kw[k] = v.detach().cpu()
+        df = pd.DataFrame(kw)
 
-            v = np.asarray(v)
-            if k not in self._dtypes:
-                self._dtypes[k] = v.dtype
-            assert np.issubdtype(v.dtype, self._dtypes[k])
-            if np.issubdtype(v.dtype, str):
-                d = dict(zip(*np.unique(v, return_counts=True)))
-            else:
-                d = dict(n=v.shape[-1], sum=v.sum(-1), sum_square=(v**2).sum(-1))
-            self.setdefault(k, []).append(d)
+        df['mb'] = i
+        df.index.name = 'sample'
+        df.set_index('mb', inplace=True, append=True)
+        df.index = df.index.swaplevel(1, 0)
+
+        if 'where' in kw:
+            df.set_index('where', inplace=True, append=True)
+
+        if split_keys:
+            cols = [_.split('_') for _ in df.columns]
+            nlevels = max(len(_) for _ in cols)
+            for _ in cols:
+                while len(_) < nlevels:
+                    _.insert(0, '_')
+
+                df.columns = pd.MultiIndex.from_tuples(cols)
+
+        self[df_k] = pd.concat([self[df_k], df]).groupby(df.index.names).max()
 
         self._compute_stats()
 
-    def _compute_mean(self, k):
-
-        mbs = self.get(k, [])
-        mean = 0
-        mean_square = 0
-        n = 0
-        for _ in mbs:
-            n += _['n']
-            mean += _['sum']
-            mean_square += _['sum_square']
-
-        mean /= n
-        mean_square /= n
-        self.stats['mean'][k] = mean
-        self.stats['std'][k] = np.sqrt(mean_square - mean**2)
-
-    def _aggregate_counts(self, k):
-        counts = {}
-        mbs = self.get(k, [])
-
-        for e in mbs:
-
-            for v, c in e.items():
-                if v not in counts:
-                    counts[v] = 0
-                counts[v] += c
-        self.stats['counts'][k] = counts
-
     def _compute_stats(self):
 
-        self.stats['mean'] = dict()
-        self.stats['std'] = dict()
-        self.stats['counts'] = dict()
+        self.stats = {}
 
-        for k in self:
+        for df_k, df in self.items():
+            for c in df.columns:
+                if c[1] == 'loss' and (c[0], 'weights') in df.columns:
+                    df[(c[0], 'weighted_loss')] = df[(c[0], 'loss')] * df[(c[0], 'weights')]
 
-            if np.issubdtype(self._dtypes[k], str):
-                self._aggregate_counts(k)
-                continue
-            self._compute_mean(k)
+            if 'where' in df.index.names:
+                self.stats[df_k] = df.groupby('where').mean()
+                self.stats[df_k].loc[df_k] = df.mean()
+            else:
+                df_stat = df.mean()
+                if isinstance(df_stat, pd.Series):
+                    df_stat = pd.DataFrame(df_stat).T
+                    df_stat.index = ['batch']
+                self.stats[df_k] = df_stat
 
 
 class TTARecorder:
@@ -115,12 +105,13 @@ class TTARecorder:
 
         if action == 'end':
             for _ in self.batch_recorder.stats:
-                print('***', _)
-                print(self.batch_recorder.stats[_])
+                df = self.batch_recorder.stats[_]
+                self.event('mb_stat', '{}\n'.format(_),
+                           df.to_string(float_format='{:.3g}'.format))
 
-    def add_minibatch(self, mb, **kw):
+    def add_minibatch(self, *a, **kw):
 
-        self.batch_recorder.add_minibatch(mb, **kw)
+        self.batch_recorder.add_minibatch(*a, **kw)
 
 
 if __name__ == '__main__':
@@ -134,3 +125,33 @@ if __name__ == '__main__':
 
     config = Config(recorder=Config(silent_events=[], print_events=True))
     recorder = TTARecorder(config)
+
+    def fake(n, dtype=float):
+
+        if dtype is str:
+            return np.random.choice(['mix', 'pad'], n)
+        return np.random.randn(n)
+
+    n = 4
+    recorder.ft_epoch('start', 0, 1)
+    for mb in range(3):
+
+        where = fake(n, str)
+        split_keys = False
+        split_keys = True
+        recorder.add_minibatch('batch', mb, id_loss=fake(n), id_weights=fake(n),
+                               adaptation_loss=fake(n), adaptation_weights=fake(n),
+                               conf=fake(n),
+                               where=where,
+                               split_keys=split_keys)
+
+        recorder.add_minibatch('strat', mb, id_loss=fake(n),
+                               split_keys=split_keys)
+
+        recorder.add_minibatch('strat', mb, pad_loss=fake(n),
+                               split_keys=split_keys)
+
+        # recorder.add_minibatch('batch', mb, conf=fake(n), where=where,
+        #                        split_keys=split_keys)
+
+    recorder.ft_epoch('end', 0, 1)
