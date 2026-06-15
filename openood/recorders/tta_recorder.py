@@ -28,7 +28,7 @@ class Events(dict):
 
 class BatchRecorder(dict):
 
-    _stats = {}
+    stats = {}
 
     def add_minibatch(self, mb, **kw):
         for k, v in kw.items():
@@ -43,8 +43,8 @@ class BatchRecorder(dict):
 
     def _compute_stats(self):
 
-        self._stats['mean'] = dict()
-        self._stats['std'] = dict()
+        self.stats['mean'] = dict()
+        self.stats['std'] = dict()
 
         for k, mbs in self.items():
 
@@ -58,8 +58,8 @@ class BatchRecorder(dict):
 
             mean /= n
             mean_square /= n
-            self._stats['mean'][k] = mean
-            self._stats['std'][k] = np.sqrt(mean_square - mean**2)
+            self.stats['mean'][k] = mean
+            self.stats['std'][k] = np.sqrt(mean_square - mean**2)
 
 
 class TTARecorder:
@@ -86,9 +86,9 @@ class TTARecorder:
             return
 
         if action == 'end':
-            for _ in self.batch_recorder._stats:
+            for _ in self.batch_recorder.stats:
                 print('***', _)
-                print(self.batch_recorder._stats[_])
+                print(self.batch_recorder.stats[_])
 
     def add_minibatch(self, mb, **kw):
 
