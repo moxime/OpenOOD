@@ -114,8 +114,8 @@ class TTARecorder:
         if action == 'end':
             for _ in self.batch_recorder.stats:
                 df = self.batch_recorder.stats[_]
-                self.event('mb_stat', '{}\n'.format(_),
-                           df.to_string(float_format='{:.3g}'.format))
+                self.event('mb_stat', '{}\n{}'.format(_,
+                                                      df.to_string(float_format='{:.3g}'.format)))
 
     def add_minibatch(self, *a, **kw):
 
