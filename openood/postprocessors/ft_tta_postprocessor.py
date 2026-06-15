@@ -184,7 +184,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
             if grad_norm > 200:
                 self._clipped_grad += 1
-                self._grad += 1
-                self.optimizer.step()
+            self._grad += 1
+            self.optimizer.step()
 
         self.recorder.ft_epoch('end', epoch, epochs)
