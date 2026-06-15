@@ -116,7 +116,7 @@ class TTARecorder:
                 df = self.batch_recorder.stats[_]
                 for c in df.columns:
                     if df[c].abs().sum() == 0:
-                        df.pop(c)
+                        pass  # df.pop(c)
                 self.event('mb_stat', epoch=epoch,
                            loss=_, mean='\n{}'.format(df.to_string(float_format='{:.3g}'.format)))
 
