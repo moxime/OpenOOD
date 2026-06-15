@@ -34,6 +34,9 @@ class BatchRecorder(dict):
         if df_k not in self:
             self[df_k] = pd.DataFrame()
 
+        for k, v in kw.items():
+            if isinstance(v, torch.Tensor):
+                kw[k] = v.detach().cpu()
         df = pd.DataFrame(kw)
 
         df['mb'] = i
