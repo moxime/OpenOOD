@@ -152,7 +152,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            self.recorder.add_minibatch('batch', where=where,
+            self.recorder.add_minibatch('batch', i, where=where,
                                         conf=conf,
                                         id_loss=id_loss,
                                         adaptation_loss=adaptation_loss,
@@ -177,7 +177,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
-                self.recorder.add_minibatch('strat', **{'stratified_{}'.format(_): stratified_loss})
+                self.recorder.add_minibatch('strat', i, **{'stratified_{}'.format(_): stratified_loss})
                 loss += (w * stratified_loss).mean()
 
             loss.backward()
