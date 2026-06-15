@@ -29,6 +29,8 @@ class Events(dict):
 
 class BatchRecorder(dict):
 
+    stats = {}
+
     def add_minibatch(self, df_k, i, split_keys=False, **kw):
 
         if df_k not in self:
@@ -71,7 +73,11 @@ class BatchRecorder(dict):
 
             if 'where' in df.index.names:
                 self.stats[df_k] = df.groupby('where').mean()
-                self.stats[df_k].loc[df_k] = df.mean()
+                self.stats['batch'].loc[df_k] = df.mean()
+                df_counts = df.groupby('where').count()
+                df_counts = df_counts[df_counts.columns[0]]
+                df_counts.loc['batch'] = df_counts.sum()
+                self.stats[df_k]['count'] = df_counts
             else:
                 df_stat = df.mean()
                 if isinstance(df_stat, pd.Series):
