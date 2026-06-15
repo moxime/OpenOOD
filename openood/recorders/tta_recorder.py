@@ -69,7 +69,7 @@ class BatchRecorder(dict):
         for df_k, df in self.items():
             for c in df.columns:
                 if c[1] == 'loss' and (c[0], 'weights') in df.columns:
-                    print('****', *c)
+                    print('****', *c, df.columns)
                     df[(c[0], 'weighted_loss')] = df[(c[0], 'loss')] * df[(c[0], 'weights')]
 
             if 'where' in df.index.names:
