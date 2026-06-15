@@ -11,6 +11,7 @@ from .kdad_recorder import KdadRecorder
 from .opengan_recorder import OpenGanRecorder
 from .rd4ad_recorder import Rd4adRecorder
 from .palm_recorder import PALMRecorder
+from .tta_recorder import TTARecorder
 
 
 def get_recorder(config: Config):
@@ -27,6 +28,7 @@ def get_recorder(config: Config):
         'ad': ADRecorder,
         'rd4ad': Rd4adRecorder,
         'palm': PALMRecorder,
+        'tta': TTARecorder
     }
 
     return recorders[config.recorder.name](config)
