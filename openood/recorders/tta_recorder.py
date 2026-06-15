@@ -29,6 +29,7 @@ class Events(dict):
 class BatchRecorder(dict):
 
     stats = {}
+    _dtypes = {}
 
     def add_minibatch(self, mb, **kw):
         for k, v in kw.items():
@@ -36,30 +37,57 @@ class BatchRecorder(dict):
                 v = v.detach().cpu()
 
             v = np.asarray(v)
-            t = (v.shape[-1], v.sum(-1), (v**2).sum(-1))
-            self.setdefault(k, []).append(t)
+            if k not in self._dtypes:
+                self._dtypes[k] = v.dtype
+            assert np.issubdtype(v.dtype, self._dtypes[k])
+            if np.issubdtype(v.dtype, str):
+                d = dict(zip(*np.unique(v, return_counts=True)))
+            else:
+                d = dict(n=v.shape[-1], sum=v.sum(-1), sum_square=(v**2).sum(-1))
+            self.setdefault(k, []).append(d)
 
         self._compute_stats()
+
+    def _compute_mean(self, k):
+
+        mbs = self.get(k, [])
+        mean = 0
+        mean_square = 0
+        n = 0
+        for _ in mbs:
+            n += _['n']
+            mean += _['sum']
+            mean_square += _['sum_square']
+
+        mean /= n
+        mean_square /= n
+        self.stats['mean'][k] = mean
+        self.stats['std'][k] = np.sqrt(mean_square - mean**2)
+
+    def _aggregate_counts(self, k):
+        counts = {}
+        mbs = self.get(k, [])
+
+        for e in mbs:
+
+            for v, c in e.items():
+                if v not in counts:
+                    counts[v] = 0
+                counts[v] += c
+        self.stats['counts'][k] = counts
 
     def _compute_stats(self):
 
         self.stats['mean'] = dict()
         self.stats['std'] = dict()
+        self.stats['counts'] = dict()
 
-        for k, mbs in self.items():
+        for k in self:
 
-            mean = 0
-            mean_square = 0
-            n = 0
-            for _ in mbs:
-                n += _[0]
-                mean += _[1]
-                mean_square += _[2]
-
-            mean /= n
-            mean_square /= n
-            self.stats['mean'][k] = mean
-            self.stats['std'][k] = np.sqrt(mean_square - mean**2)
+            if np.issubdtype(self._dtypes[k], str):
+                self._aggregate_counts(k)
+                continue
+            self._compute_mean(k)
 
 
 class TTARecorder:
