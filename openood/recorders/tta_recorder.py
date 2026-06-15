@@ -94,9 +94,9 @@ class TTARecorder:
 
         self.config = config
 
-        black_list = config.recorder.get('event_blacklist', [])
-        white_list = config.recorder.get('event_whitelist', [])
-        self.events = Events(not config.recorder.print_events,
+        black_list = config.recorder.events.get('blacklist', [])
+        white_list = config.recorder.events.get('whitelist', [])
+        self.events = Events(not config.recorder.events.print,
                              black_list=black_list, white_list=white_list,
                              **self._events_str)
 

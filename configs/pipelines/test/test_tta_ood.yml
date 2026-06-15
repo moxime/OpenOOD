@@ -58,6 +58,7 @@ recorder:
   name: tta
   save_scores: True
   save_csv: True
-  print_events: False
-  event_whitlelist: []
-  event_blacklist: []
+  events:
+    print: False
+    whitelist: []
+    blacklist: []
