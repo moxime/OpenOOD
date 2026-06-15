@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -136,6 +137,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
+
+            print(np.unique(np.array(where), return_counts=True))
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
