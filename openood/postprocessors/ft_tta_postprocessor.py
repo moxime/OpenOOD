@@ -1,5 +1,3 @@
-import os
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -138,8 +136,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            print(np.unique(np.array(where), return_counts=True))
-
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
@@ -158,8 +154,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self.recorder.add_minibatch('batch', i, where=where,
                                         conf=conf,
                                         id_loss=id_loss,
-                                        adaptation_loss=adaptation_loss,
                                         id_weights=w_normalization[0] * weights.T[0],
+                                        adaptation_loss=adaptation_loss,
                                         adaptation_weigths=w_normalization[1] * weights.T[1])
 
             self.optimizer.zero_grad()
