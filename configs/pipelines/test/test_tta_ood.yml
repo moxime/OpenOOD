@@ -59,4 +59,5 @@ recorder:
   save_scores: True
   save_csv: True
   print_events: False
-  silent_events: []
+  event_whitlelist: []
+  event_blacklist: []

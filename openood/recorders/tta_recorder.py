@@ -1,6 +1,3 @@
-import os
-import time
-from pathlib import Path
 import torch
 import numpy as np
 import pandas as pd
@@ -8,10 +5,11 @@ import pandas as pd
 
 class Events(dict):
 
-    def __init__(self, silent, *black_list, **kw):
+    def __init__(self, silent, white_list=[], black_list=[], **kw):
 
         self.silent = silent
         self.black_list = black_list
+        self.white_list = white_list
         super().__init__(**kw)
 
     def __getitem__(self, k):
@@ -19,6 +17,8 @@ class Events(dict):
         return super().get(k, k)
 
     def __contains__(self, k):
+        if k in self.white_list:
+            return True
         if self.silent:
             return False
         if k in self.black_list:
@@ -31,7 +31,7 @@ class BatchRecorder(dict):
 
     stats = {}
 
-    def add_minibatch(self, df_k, i, split_keys=False, **kw):
+    def add_minibatch(self, df_k, i, split_keys=True, **kw):
 
         if df_k not in self:
             self[df_k] = pd.DataFrame()
@@ -94,8 +94,10 @@ class TTARecorder:
 
         self.config = config
 
-        black_list = [] if not config.recorder.silent_events else config.recorder.silent_events
-        self.events = Events(not config.recorder.print_events, *black_list,
+        black_list = config.recorder.get('event_blacklist', [])
+        white_list = config.recorder.get('event_whitelist', [])
+        self.events = Events(not config.recorder.print_events,
+                             black_list=black_list, white_list=white_list,
                              **self._events_str)
 
     def event(self, evt, *a, **kw):
@@ -129,7 +131,14 @@ if __name__ == '__main__':
             for k, w in kw.items():
                 setattr(self, k, w)
 
-    config = Config(recorder=Config(silent_events=[], print_events=True))
+        def get(self, k, o=None):
+
+            try:
+                return getattr(self, k)
+            except AttributeError:
+                return o
+
+    config = Config(recorder=Config(event_blacklist=[], event_whitelist=[], print_events=True))
     recorder = TTARecorder(config)
 
     def fake(n, dtype=float):
