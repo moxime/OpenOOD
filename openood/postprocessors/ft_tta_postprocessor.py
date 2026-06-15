@@ -141,12 +141,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             logits, features = net(data, return_feature=True)
 
-            if w_norm0[0]:
+            if w_norm0[0] or True:
                 id_loss = self.loss(logits, pred)
             else:
                 id_loss = torch.zeros_like(conf)
 
-            if w_norm0[1]:
+            if w_norm0[1] or True:
                 adaptation_loss = self.adaptation_loss(logits=logits, features=features, net=net)
             else:
                 adaptation_loss = torch.zeros_like(conf)
@@ -156,7 +156,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                                         id_loss=id_loss,
                                         id_weights=w_normalization[0] * weights.T[0],
                                         adaptation_loss=adaptation_loss,
-                                        adaptation_weigths=w_normalization[1] * weights.T[1])
+                                        adaptation_weights=w_normalization[1] * weights.T[1])
 
             self.optimizer.zero_grad()
 
