@@ -43,6 +43,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.setup_flag = True
 
         unfreeze = self.config.postprocessor.ft.unfreeze
+        self.recorder.event('unfreeze', unfreeze)
         if unfreeze:
             for _ in net.parameters():
                 _.requires_grad_(False)
@@ -85,6 +86,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         """
 
+        self.recorder.event('finetune', epoch='{}/{}'.format(epoch, epochs))
+        self.recorder.ft_epoch('start', epoch, epochs, data=data, conf=conf, pred=pred)
+
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
         batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
 
@@ -125,12 +129,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            # if not i:
-            #     h = hash(tuple(batch['data'].cpu().numpy().flatten()))
-            #     print('HASH:', h)
-
-            inspection_dict = {}
-
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
             conf = batch['conf'].cuda()
@@ -139,7 +137,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            inspection_dict.update(where=where, conf=conf)
+            self.recorder.add_minibatch(i, where=where, conf=conf)
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
@@ -156,7 +154,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
+            self.recorder.add_minibatch(i, id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
 
             self.optimizer.zero_grad()
 
@@ -176,7 +174,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
-                inspection_dict.update({'stratified_loss_{}'.format(_): stratified_loss})
+                self.recorder.add_minibatch(i, **{'stratified_loss_{}'.format(_): stratified_loss})
                 loss += (w * stratified_loss).mean()
 
             loss.backward()
@@ -187,6 +185,4 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._grad += 1
             self.optimizer.step()
 
-            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
-
-        self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
+        self.recorder.ft_epoch('end', epoch, epochs)
