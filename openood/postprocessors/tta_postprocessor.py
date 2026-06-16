@@ -108,10 +108,17 @@ class TTAPostprocessor(BasePostprocessor):
         self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
-        for k, dl in id_loader_dict.items():
-            print('*** id_loader_dict', k, type(dl))
-        for k, dl in id_ood_loader_dict.items():
-            print('*** id_ood_aux_loader_dict', k, type(dl))
+        def _unfold(name, dl):
+            if isinstance(dl, DataLoader):
+                self.recorder.event('dl', name, set='\n'+str(dl.dataset))
+                return
+            if not isinstance(dl, dict):
+                return
+            for k, v in dl.items():
+                _unfold('{}/{}'.format(name, k), v)
+
+        _unfold('id', id_loader_dict)
+        _unfold('id_ood', id_ood_loader_dict)
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
