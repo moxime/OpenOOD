@@ -32,6 +32,9 @@ class OrthoTTAPostprocessor(DistTTAPostprocessor):
 
         prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
 
-        conf = prob_y.log() + ortho_1
+        log_prob_y = prob_y.log()
+        conf = log_prob_y + ortho_1
+
+        self.recorder.event('ortho_comp', ortho=ortho_1.mean(), log_prob=log_prob_y)
 
         return pred, conf
