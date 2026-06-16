@@ -58,7 +58,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             q = [0.1, 0.5, 0.9]
             quantiles = {_: np.quantile(conf, _) for _ in q}
             self_prop = (conf < t).mean()
-            print('*** val q {}/{}'.format(epoch, self.epochs),
+            print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
                   ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
                   '{:.1%} < {}'.format(self_prop, t))
         self.debug = debug
