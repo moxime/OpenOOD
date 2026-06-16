@@ -108,7 +108,10 @@ class TTAPostprocessor(BasePostprocessor):
         self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
-        pass
+        for k, dl in id_loader_dict.items():
+            print('*** id_loader_dict', k, type(dl))
+        for k, dl in id_ood_loader_dict.items():
+            print('*** id_ood_aux_loader_dict', k, type(dl))
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
