@@ -36,14 +36,18 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                       sort_keys=False,
                       indent=2)
 
-    def setup(self, net, *a, **kw):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
-        super().setup(net, *a, **kw)
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
         if self.mu_ood:
             if self.mu_ood == 'zero':
                 self.mu_ood = torch.zeros_like(net.get_fc_layer().weight[0])
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
+
+        """ stats on id val set """
+        output = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+        print('***', output)
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
