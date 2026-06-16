@@ -1,6 +1,7 @@
 from .ft_tta_postprocessor import FTTTAPostprocessor
-import torch.nn as nn
+import numpy as np
 import torch
+import torch.nn as nn
 from typing import Any
 import os
 import yaml
@@ -53,7 +54,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         for epoch in outputs[0]:
             pred, conf, label = (_[epoch] for _ in outputs)
             q = [0.1, 0.5, 0.9]
-            quantiles = {_: conf.quantile(_) for _ in q}
+            quantiles = {_: np.quantile(conf, _) for _ in q}
             print('*** val q', ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()))
         self.debug = debug
 
