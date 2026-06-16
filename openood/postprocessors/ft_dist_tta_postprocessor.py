@@ -48,15 +48,21 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         """ stats on id val set """
         debug = self.debug
-        self.debug = 0
+        # self.debug = 0
         # output : pred[conf], conf[epoch], label[epoch]
+        t = self.pad_thresholds['self']
+        self.pad_thresholds['self'] = -np.inf
         outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
         for epoch in outputs[0]:
             pred, conf, label = (_[epoch] for _ in outputs)
             q = [0.1, 0.5, 0.9]
             quantiles = {_: np.quantile(conf, _) for _ in q}
-            print('*** val q', ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()))
+            self_prop = (conf < t).mean()
+            print('*** val q {}/{}'.format(epoch, self.epochs),
+                  ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                  '{:.1%} < {}'.format(self_prop, t))
         self.debug = debug
+        self.pad_thresholds['self'] = t
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
