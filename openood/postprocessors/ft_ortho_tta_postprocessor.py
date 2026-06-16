@@ -35,7 +35,11 @@ class OrthoTTAPostprocessor(DistTTAPostprocessor):
         log_prob_y = prob_y.log()
         conf = log_prob_y + ortho_1
 
-        self.recorder.event('ortho_comp', len=len(conf), ortho='{:.3f}'.format(ortho_1.mean()),
-                            log_prob='{:.3f}'.format(log_prob_y.mean()))
+        ortho_stat = ortho_1.mean(), ortho_1.std()
+        log_prob_stat = log_prob_y.mean(), log_prob_y.std()
+        _s = '{:.2f}\u00B1{:.2f}'
+        self.recorder.event('ortho_comp', len=len(conf),
+                            ortho=_s.format(*ortho_stat),
+                            log_prob=_s.format(*log_prob_stat))
 
         return pred, conf
