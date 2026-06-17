@@ -139,7 +139,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         if self.ft_checkpoint_loaded and self.phase == 'gas':
             self.phase == 'solid'
-            print('****************************************************************************')
+            print('****************************************************************************', self.phase)
             return
 
         if not self.max_iterations:
