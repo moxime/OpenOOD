@@ -71,6 +71,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
     def reset(self, *a, **kw):
 
         super().reset(*a, **kw)
+        self.ft_checkpoint_loaded = False
         try:
             os.remove(self.ft_checkpoint)
             self.recorder.event('load_ft_state', rm=self.ft_checkpoint.name)
@@ -128,13 +129,16 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if not epoch:
             try:
                 net.load_state_dict(torch.load(self.ft_checkpoint))
+                self.ft_checkpoint_loaded = True
                 self.recorder.event('load_ft_state', 'done')
-                self.phase = 'solid'
             except FileNotFoundError:
                 self.recorder.event('load_ft_state', no='{} does not exist'.format(self.ft_checkpoint.name))
 
         if epoch == self.epochs:
             torch.save(net.state_dict(), self.ft_checkpoint)
+
+        if self.ft_checkpoint_loaded:
+            self.phase == 'solid'
 
         if not self.max_iterations or self.phase == 'solid':
             return
