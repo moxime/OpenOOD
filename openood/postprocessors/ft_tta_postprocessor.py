@@ -9,6 +9,12 @@ from openood.losses import uniform_ce, MarginCrossEntropy
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
+    """ FTTTAPostprocessor(TTAPostprocessor)
+
+    - implementation of finetume
+
+    """
+
     def __init__(self, config):
         super().__init__(config)
         self.batch_size = self.config.ood_dataset.batch_size
