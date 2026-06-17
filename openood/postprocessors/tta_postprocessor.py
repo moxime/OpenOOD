@@ -69,6 +69,51 @@ class PadBuffer(deque):
 
 
 class TTAPostprocessor(BasePostprocessor):
+
+    """ TTAPostprocessor Loop
+
+    - setup on net for a new "experiment"
+
+    - for each dl of mix id/ood datasets do inference():
+
+        - do reset() on net:
+
+        - reload network
+
+        - empty pad buffers
+
+        - for each chunk of mix id/out samples
+
+            - do new_chunk():
+
+            - reload network (can be deactivated)
+
+            - refresh pad buffers (in and ood)
+
+            - for each epoch in 0...epochs-1
+
+                - calculate conf score on chunk (if condition on epoch is
+                  met with calculate_conf())
+
+                - calculate conf score on ood pad
+
+                - do init_epoch(epoch)
+
+                - do finetume(epoch): see ft_tta_postprocessor for
+                  implementation
+
+            |____ end for eooch
+
+            - calculate conf score on chunk
+
+            - do init_epoch(last)
+
+            - update self buffer
+
+        |____ end for chink
+
+    |____ end for dl """
+
     def __init__(self, config):
         super().__init__(config)
 

@@ -17,6 +17,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         self.iterations = self.args.iterations_per_phase
         self.switch_phase = self.epochs // 4
 
+        self.ft_checkpoint = os.path.join(config.output_dir, 'checkpoint_ft.pth')
+
         # number of iterations per phase when no self padding
         min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
         min_it_per_epoch = min_padded_size / self.batch_size
@@ -46,23 +48,24 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        """ stats on id val set """
-        debug = self.debug
-        # self.debug = 0
-        # output : pred[conf], conf[epoch], label[epoch]
-        t = self.pad_thresholds['self']
-        self.pad_thresholds['self'] = -np.inf
-        outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
-        for epoch in outputs[0]:
-            pred, conf, label = (_[epoch] for _ in outputs)
-            q = [0.1, 0.5, 0.9]
-            quantiles = {_: np.quantile(conf, _) for _ in q}
-            self_prop = (conf < t).mean()
-            print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                  ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                  '{:.1%} < {}'.format(self_prop, t))
-        self.debug = debug
-        self.pad_thresholds['self'] = t
+        """stats on id val set"""
+        if False:
+            debug = self.debug
+            # self.debug = 0
+            # output : pred[conf], conf[epoch], label[epoch]
+            t = self.pad_thresholds['self']
+            self.pad_thresholds['self'] = -np.inf
+            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+            for epoch in outputs[0]:
+                pred, conf, label = (_[epoch] for _ in outputs)
+                q = [0.1, 0.5, 0.9]
+                quantiles = {_: np.quantile(conf, _) for _ in q}
+                self_prop = (conf < t).mean()
+                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                      ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                      '{:.1%} < {}'.format(self_prop, t))
+            self.debug = debug
+            self.pad_thresholds['self'] = t
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
@@ -112,7 +115,18 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if epoch < self.switch_phase:
             self.phase = 'gas'
 
-        if not self.max_iterations:
+        if not epoch:
+            try:
+                net.load_state_dict(torch.load(self.ft_checkpoint))
+                self.recorder.event('laod_ft_state', 'done')
+                self.phase = 'solid'
+            except FileNotFoundError:
+                self.recorder.event('laod_ft_state', no='ckpt does not exist')
+
+        if epoch == self.epochs:
+            torch.save(net.state_dict(), self.ft_checkpoint)
+
+        if not self.max_iterations or self.phase == 'solid':
             return
 
         padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
