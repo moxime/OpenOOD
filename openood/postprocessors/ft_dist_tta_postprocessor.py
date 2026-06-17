@@ -137,7 +137,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if epoch == self.epochs:
             torch.save(net.state_dict(), self.ft_checkpoint)
 
-        if self.ft_checkpoint_loaded:
+        if self.ft_checkpoint_loaded and self.phase == 'gas':
             self.phase == 'solid'
             return
 
