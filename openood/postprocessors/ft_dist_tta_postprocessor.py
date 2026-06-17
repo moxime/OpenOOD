@@ -1,10 +1,11 @@
-from .ft_tta_postprocessor import FTTTAPostprocessor
+import os
+from pathlib import Path
+from typing import Any
+import yaml
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Any
-import os
-import yaml
+from .ft_tta_postprocessor import FTTTAPostprocessor
 
 
 class DistTTAPostprocessor(FTTTAPostprocessor):
@@ -17,7 +18,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         self.iterations = self.args.iterations_per_phase
         self.switch_phase = self.epochs // 4
 
-        self.ft_checkpoint = os.path.join(config.output_dir, 'checkpoint_ft.pth')
+        self.ft_checkpoint = Path(config.output_dir) / 'checkpoint_ft.pth'
 
         # number of iterations per phase when no self padding
         min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
@@ -66,6 +67,16 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                       '{:.1%} < {}'.format(self_prop, t))
             self.debug = debug
             self.pad_thresholds['self'] = t
+
+    def reset(self, *a, **kw):
+
+        super().reset(*a, **kw)
+        self.ft_checkpoint_loaded = False
+        try:
+            os.remove(self.ft_checkpoint)
+            self.recorder.event('load_ft_state', rm=self.ft_checkpoint.name)
+        except FileNotFoundError:
+            self.recorder.event('load_ft_state', rm='{} does not exist'.format(self.ft_checkpoint.name))
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
@@ -118,15 +129,19 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if not epoch:
             try:
                 net.load_state_dict(torch.load(self.ft_checkpoint))
-                self.recorder.event('laod_ft_state', 'done')
-                self.phase = 'solid'
+                self.ft_checkpoint_loaded = True
+                self.recorder.event('load_ft_state', 'done')
             except FileNotFoundError:
-                self.recorder.event('laod_ft_state', no='ckpt does not exist')
+                self.recorder.event('load_ft_state', no='{} does not exist'.format(self.ft_checkpoint.name))
 
         if epoch == self.epochs:
             torch.save(net.state_dict(), self.ft_checkpoint)
 
-        if not self.max_iterations or self.phase == 'solid':
+        if self.ft_checkpoint_loaded and self.phase == 'gas':
+            self.phase = 'solid'
+            return
+
+        if not self.max_iterations:
             return
 
         padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
