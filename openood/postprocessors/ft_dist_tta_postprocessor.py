@@ -140,8 +140,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if self.ft_checkpoint_loaded:
             self.phase == 'solid'
             print('********************* solid')
+            return
 
-        if not self.max_iterations or self.phase == 'solid':
+        print('**********************************************************')
+        if not self.max_iterations:
             return
 
         padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)
