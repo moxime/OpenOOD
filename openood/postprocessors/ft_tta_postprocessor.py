@@ -92,6 +92,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
 
         self.recorder.event('finetune', epoch='{}/{}'.format(epoch, epochs))
+        print('********************************', self.phase)
         self.recorder.ft_epoch('start', epoch, epochs, data=data, conf=conf, pred=pred)
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}

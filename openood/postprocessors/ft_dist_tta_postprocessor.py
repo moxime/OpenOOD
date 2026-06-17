@@ -139,10 +139,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         if self.ft_checkpoint_loaded:
             self.phase == 'solid'
-            print('********************* solid')
             return
 
-        print('**********************************************************')
         if not self.max_iterations:
             return
 
