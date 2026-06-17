@@ -61,4 +61,4 @@ recorder:
   events:
     print: False
     whitelist: []
-    blacklist: [mb_stat, orth_comp, aux_batch]
+    blacklist: [mb_stat, ortho_comp, aux_batch]
