@@ -9,6 +9,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, BatchSampler
 from .tta_postprocessor import TTAPostprocessor
 
+from .batch_inspector import BatchInspector
+
 from openood.losses import uniform_ce, MarginCrossEntropy
 import logging
 import time
@@ -26,6 +28,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.lr = self.ft_args.lr
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
+
+        self.filterout_null_weights = self.ft_args.only_non_zeros
+        self.size_normalization = True
+
+        self.max_iterations_on = {}
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -58,9 +65,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-    def reset(self, net):
-        pass
-
     def next_aux_minibatch(self, where):
 
         assert where in self.stratified, '{} is ot stratified'.format(where)
@@ -73,12 +77,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return self.next_aux_minibatch(where)
 
-    def alternate_loss(self, logits, features, labels, net):
+    def adaptation_loss(self, logits, features, net):
 
         return uniform_ce(logits)
 
-    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
-        """ return loss_weight, alternate_loss_weight for sample x
+    def losses_weight(self, data=None, conf=0., pred=None, where='id', epoch=0, epochs=0):
+        """ return loss_weight, adaptation_loss_weight for sample data
 
         where is either id, ood, self, mix
 
@@ -89,40 +93,59 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         return (0., self.beta)
 
-    def inspect_minibatch(self, where=None, w_loss=None, epoch=0, epochs=0, **kw):
+    def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
         """
         implement this methd in child class for debug purpose
         """
         if not hasattr(self, '_debug'):
             return
 
-        if where is None or not self.calculate_conf(epoch, epochs):
-            return
+        if not hasattr(self, '_inspector'):
+            self._inspector = BatchInspector()
 
-        wheres, wherecount = np.unique(where, return_counts=True)
-        print(' -- '.join('{}: {}'.format(*_) for _ in zip(wheres, wherecount)))
+        self._inspector.epoch = epoch
+        self._inspector.iterations += 1
+        if self.calculate_conf(epoch, epochs):
+            self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
-        where = np.array(where)
-        w_loss_w = {}
-        for w in wheres:
-            w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
-        means = w_loss.mean(-1)
-        print('orig: {:.2g} x {:.2g} = alt: {:.2g}'.format(means[0], means[1] / means[0], means[1]))
-        if hasattr(self, 'n_samples'):
-            print(self.n_samples)
+        if flush and epoch == epochs - 1:
+            print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
+                                                                    epochs,
+                                                                    self._inspector.iterations / epochs))
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
 
         """
+        for _, m in self.max_iterations_on.items():
+            if self.iterations_on.get(_, 0) >= m:
+                return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-        batch_list = deque([dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())])
+        batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
 
-        # for instance you can create a minibatch_loader
+        for where in self.pad_buffers:
+            batch_list.extend(self.pad_buffers[where])
 
-        minibatch_loader = DataLoader(sum((self.pad_buffers[_] for _ in self.pad_buffers), start=batch_list),
+        for d in batch_list:
+            d.pop('weights', None)
+            d['weights'] = torch.tensor(self.losses_weight(**d, epoch=epoch, epochs=epochs))
+
+        if self.filterout_null_weights:
+            batch_list = [_ for _ in batch_list if _['weights'].norm()]
+
+        if self.size_normalization:
+            N_samples = len(batch_list)
+            N_id_weights = len([_ for _ in batch_list if _['weights'][0] > 0])
+            N_adaptation_weights = len([_ for _ in batch_list if _['weights'][1] > 0])
+
+            w_normalization = (N_samples / (N_id_weights + 1e-12),
+                               N_samples / (N_adaptation_weights + 1e-12))
+
+        else:
+            w_normalization = (1., 1.)
+
+        minibatch_loader = DataLoader(batch_list,
                                       shuffle=True,
                                       batch_size=self.batch_size,
                                       drop_last=False)
@@ -134,50 +157,65 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
+            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix', 0) + 1
+            inspection_dict = {}
+
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
             conf = batch['conf'].cuda()
             where = batch['where']
 
+            weights = batch['weights'].cuda()
+            w_norm0 = weights.norm(0, dim=0)
+
+            inspection_dict.update(where=where)
+
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
-            if self.n_samples['original']:
-                original_loss = self.loss(logits, pred)
+
+            if w_norm0[0]:
+                id_loss = self.loss(logits, pred)
             else:
-                original_loss = torch.zeros_like(conf)
+                id_loss = torch.zeros_like(conf)
 
-            alternate_loss = self.alternate_loss(logits=logits, features=features,
-                                                 labels=pred, net=net)
+            if w_norm0[1]:
+                adaptation_loss = self.adaptation_loss(logits=logits, features=features, net=net)
+            else:
+                adaptation_loss = torch.zeros_like(conf)
 
-            # loss_weights of size 2 * batch_size
-            p_ = zip(data, logits, features, pred, conf, where)
-            w_loss = torch.tensor([self.loss_weights(*p, epoch, epochs)
-                                   for p in p_]).T.cuda()
-
-            self.inspect_minibatch(where=where, w_loss=w_loss, epoch=epoch, epochs=epochs)
+            inspection_dict.update(id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
 
             self.optimizer.zero_grad()
 
-            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean() * 2
+            # weights is batch_size*2
+            loss = w_normalization[0] * (id_loss * weights.T[0]).mean()
+            loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
+                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_, 0) + 1
                 batch_ = self.next_aux_minibatch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
                 if _ == 'ood':
-                    raise NotImplementedError
-                else:
+                    w = self.beta
+                    stratified_loss = self.adaptation_loss(logits, features, net)
+                elif _ == 'id':
+                    w = 1
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
-                loss += stratified_loss.mean()
+                inspection_dict.update({'stratified_loss_{}'.format(_): stratified_loss})
+                loss += (w * stratified_loss).mean()
 
             loss.backward()
 
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
-            # if grad_norm > 200:
-            #     self._clipped_grad += 1
-            # self._grad += 1
+            if grad_norm > 200:
+                self._clipped_grad += 1
+            self._grad += 1
             self.optimizer.step()
+
+            flush = (i == len(minibatch_loader) - 1)
+            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs, flush=flush)

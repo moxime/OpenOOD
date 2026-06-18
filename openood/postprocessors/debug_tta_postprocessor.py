@@ -1,3 +1,6 @@
+import pandas as pd
+import openood.utils.comm as comm
+from .info import num_classes_dict
 from typing import Any
 
 import numpy as np
@@ -16,10 +19,7 @@ from .base_postprocessor import BasePostprocessor
 from .tta_postprocessor import TTAPostprocessor
 from .ft_tta_postprocessor import FTTTAPostprocessor
 from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
-from .info import num_classes_dict
-import openood.utils.comm as comm
-
-import pandas as pd
+from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 
 def timedfunc(message):
@@ -64,12 +64,10 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(FTTTAPostprocessor):
+class DebugTTAPostprocessor(DistTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
-        self.temperature = self.args.temperature
-        self.bogus = self.args.bogus
         self._debug = True
 
     def reload_network(self, net):
@@ -81,7 +79,7 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
         if self.setup_flag:
             return
         super().setup(net, id_loader_dict, ood_loader_dict)
-        self.loss = timedfunc('loss')(self.loss)
+        # self.loss = timedfunc('loss')(self.loss)
 
         print('ID LOADER DICT')
         _unfold_(id_loader_dict)
@@ -113,9 +111,8 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
         return n
 
     # @timedfunc('loss weight')
-    def loss_weights(self, x, logit, feature, label, conf, where, epoch=0, epochs=0):
-        w = super().loss_weights(x, logit, feature, label, conf, where, epoch=epoch, epochs=epochs)
-
+    def losses_weight(self, **kw):
+        w = super().losses_weight(**kw)
         # if epoch in (epochs // 3, 2 * epochs // 3):
         #     print('{} {:4} conf={:.1f}: {:.1f}, {:.1f}'.format(epoch, where, conf, *w))
         return w
@@ -128,9 +125,9 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
     def postprocess(self, *a, **kw):
         return super().postprocess(*a, **kw)
 
-    @timedfunc('alternate loss')
-    def alternate_loss(self, *a, **kw):
-        return super().alternate_loss(*a, **kw)
+    @timedfunc('adaptation loss')
+    def adaptation_loss(self, *a, **kw):
+        return super().adaptation_loss(*a, **kw)
 
     @timedfunc('FT')
     def finetune(self, *a, **kw):
@@ -138,4 +135,4 @@ class DebugTTAPostprocessor(FTTTAPostprocessor):
 
     @timedfunc('next batch')
     def next_pad_batch(self, *a, **kw):
-        return super().next_pad_batch(*a, **kw)
+        return super().next_aux_batch(*a, **kw)

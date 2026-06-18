@@ -10,7 +10,7 @@ from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 class OrthoTTAPostprocessor(DistTTAPostprocessor):
 
-    def alternate_loss(self, logits, features, labels, net):
+    def adaptation_loss(self, logits, features, net):
 
         bias = net.get_fc_layer().bias
 
