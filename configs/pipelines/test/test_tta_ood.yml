@@ -55,5 +55,10 @@ postprocessor:
     only_non_zeros: True
   
 recorder:
+  name: tta
   save_scores: True
   save_csv: True
+  events:
+    print: False
+    whitelist: []
+    blacklist: []

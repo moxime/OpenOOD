@@ -1,10 +1,8 @@
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn as nn
 
-from torch.utils.data import DataLoader, BatchSampler
 from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 
@@ -30,17 +28,21 @@ class OrthoTTAPostprocessor(DistTTAPostprocessor):
         if pred is None:
             _, pred = torch.max(logits, dim=1)
 
-        # weight.z = logits - bias
-        # 1/C * sum_y |zT.m_y| = (weight.z).abs().mean(-1)
         ortho_1 = (logits - bias).abs().mean(-1)
 
         prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
 
-        # p1, p2, p3 = prob_y.log().cpu().quantile(torch.tensor([0.25, 0.5, 0.75]))
-        # pm = prob_y.log().mean()
-        # om = ortho_1.mean()
-        # print(f'*** prob_y {p1:.3f} -- {p2:.3f} -- {p3:.3f} ({pm:.3f} ortho {om}')
+        log_prob_y = prob_y.log()
+        conf = log_prob_y + ortho_1
 
-        conf = prob_y.log() + ortho_1
+        ortho_stat = ortho_1.mean(), ortho_1.std()
+        log_prob_stat = log_prob_y.mean(), log_prob_y.std()
+        conf_stat = conf.mean(), conf.std()
+
+        _s = '{:.2f}\u00B1{:.2f}'
+        self.recorder.event('ortho_comp', len=len(conf),
+                            ortho=_s.format(*ortho_stat),
+                            log_prob=_s.format(*log_prob_stat),
+                            conf=_s.format(*conf_stat))
 
         return pred, conf

@@ -10,6 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 import openood.utils.comm as comm
+from openood.recorders import get_recorder
 
 from .base_postprocessor import BasePostprocessor
 
@@ -94,6 +95,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.ood_ratio = config.pipeline.ood_ratio
 
+        self.recorder = get_recorder(config)
+
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training id dataset
@@ -105,10 +108,21 @@ class TTAPostprocessor(BasePostprocessor):
         self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
-        pass
+        def _unfold(name, dl):
+            if isinstance(dl, DataLoader):
+                self.recorder.event('dl', name, set='\n'+str(dl.dataset))
+                return
+            if not isinstance(dl, dict):
+                return
+            for k, v in dl.items():
+                _unfold('{}/{}'.format(name, k), v)
+
+        _unfold('id', id_loader_dict)
+        _unfold('id_ood', id_ood_loader_dict)
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
+        self.recorder.event('reload_network')
 
     def reset(self, net):
         """reset is done at each new "experiment" (dataset)
@@ -125,12 +139,12 @@ class TTAPostprocessor(BasePostprocessor):
 
     def next_aux_batch(self, where):
         """
-        fetch next aux batch from aux_dl (recreate iter on stop iteration)
-        """
-        assert where in self.pad_buffers, '{} is not used for padding'.format(where)
-
+         fetch next aux batch from aux_dl (recreate iter on stop iteration)
+         """
         try:
-            return next(self._aux_iters[where])
+            _ = next(self._aux_iters[where])
+            self.recorder.event('aux_batch', where)
+            return _
         except AttributeError:
             self._aux_iters = {}
         except (KeyError, StopIteration):
@@ -152,6 +166,7 @@ class TTAPostprocessor(BasePostprocessor):
         for x, s, y in zip(data, conf, pred):
             n += self.pad_buffers[where].append(data=x, pred=y, conf=s, where=where)
 
+        self.recorder.event('update_pad_buffers', where, samples=n)
         return n
 
     def new_chunk(self, net, data, epochs=0):
@@ -181,6 +196,7 @@ class TTAPostprocessor(BasePostprocessor):
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
+        self.recorder.event('init_epoch', epoch=epoch)
         return
 
     @torch.no_grad()
@@ -285,6 +301,7 @@ class TTAPostprocessor(BasePostprocessor):
                 Important: we keep pred calculated prior to the FT
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
+                    self.recorder.event('calculate_conf', pred_is_none=pred is None)
                     pred, conf = self.postprocess(net, data, pred=pred)
                     for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                         outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())

@@ -1,11 +1,9 @@
-import os
 import torch
 import torch.nn as nn
 
 from torch.utils.data import DataLoader
 from .tta_postprocessor import TTAPostprocessor
 
-from .batch_inspector import BatchInspector
 
 from openood.losses import uniform_ce, MarginCrossEntropy
 
@@ -44,6 +42,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.setup_flag = True
 
         unfreeze = self.config.postprocessor.ft.unfreeze
+        self.recorder.event('unfreeze', unfreeze)
         if unfreeze:
             for _ in net.parameters():
                 _.requires_grad_(False)
@@ -58,18 +57,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
-
-    def next_aux_minibatch(self, where):
-
-        assert where in self.stratified, '{} is ot stratified'.format(where)
-        try:
-            return next(self._aux_iters[where])
-        except AttributeError:
-            self._aux_iters = {}
-        except (KeyError, StopIteration):
-            self._aux_iters[where] = iter(self.aux_dls[where])
-
-        return self.next_aux_minibatch(where)
 
     def adaptation_loss(self, logits, features, net):
 
@@ -91,33 +78,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         implement this methd in child class for debug purpose
         """
-
-        try:
-            if not self._debug:
-                return
-        except AttributeError:
-            return
-
-        if flush:
-            for _ in self.pad_buffers:
-                p = self.pad_buffers[_].save(os.path.join(self.config.output_dir,
-                                                          'pad_{}_{}.png'.format(_, epoch)))
-
-        if not hasattr(self, '_inspector'):
-            self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
-
-        self._inspector.epoch = epoch
-
-        printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
-        printout = flush
-        self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
-        if printout:
-            self._inspector.print()
+        pass
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
 
         """
+
+        self.recorder.event('finetune', epoch='{}/{}'.format(epoch, epochs))
+        self.recorder.ft_epoch('start', epoch, epochs, data=data, conf=conf, pred=pred)
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
         batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
@@ -159,12 +128,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            # if not i:
-            #     h = hash(tuple(batch['data'].cpu().numpy().flatten()))
-            #     print('HASH:', h)
-
-            inspection_dict = {}
-
             data = batch['data'].cuda()
             pred = batch['pred'].cuda()
             conf = batch['conf'].cuda()
@@ -173,24 +136,27 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            inspection_dict.update(where=where, conf=conf)
-
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
 
-            if w_norm0[0]:
+            if w_norm0[0] or True:
                 id_loss = self.loss(logits, pred)
             else:
                 id_loss = torch.zeros_like(conf)
 
-            if w_norm0[1]:
+            if w_norm0[1] or True:
                 adaptation_loss = self.adaptation_loss(logits=logits, features=features, net=net)
             else:
                 adaptation_loss = torch.zeros_like(conf)
 
-            inspection_dict.update(id_loss=id_loss, adaptation_loss=adaptation_loss, weights=weights)
+            self.recorder.add_minibatch('batch', i, where=where,
+                                        conf=conf,
+                                        id_loss=id_loss,
+                                        id_weights=w_normalization[0] * weights.T[0],
+                                        adaptation_loss=adaptation_loss,
+                                        adaptation_weights=w_normalization[1] * weights.T[1])
 
             self.optimizer.zero_grad()
 
@@ -199,7 +165,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
-                batch_ = self.next_aux_minibatch(_)
+                batch_ = self.next_aux_batch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
                 if _ == 'ood':
@@ -210,7 +176,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
-                inspection_dict.update({'stratified_loss_{}'.format(_): stratified_loss})
+                self.recorder.add_minibatch('strat', i, **{'stratified_{}'.format(_): stratified_loss})
                 loss += (w * stratified_loss).mean()
 
             loss.backward()
@@ -221,6 +187,4 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._grad += 1
             self.optimizer.step()
 
-            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
-
-        self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)
+        self.recorder.ft_epoch('end', epoch, epochs)

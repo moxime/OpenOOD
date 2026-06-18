@@ -2,11 +2,12 @@ import pandas as pd
 import openood.utils.comm as comm
 from .info import num_classes_dict
 from typing import Any
+from .batch_inspector import BatchInspector
 
 import numpy as np
 import torch
 import torch.nn as nn
-
+import os
 
 import time
 
@@ -59,10 +60,7 @@ def debug_tta(cls):
     def debugged(func):
 
         def debuggedfunc(obj, *a, **kw):
-            obj._debug_now = obj._debug
-            obj._debug = False
             out = func(obj, *a, **kw)
-            obj._debug = obj._debug_now
             return out
 
         return debuggedfunc
@@ -71,7 +69,7 @@ def debug_tta(cls):
         def __init__(self, config):
             super().__init__(config)
             self.setup_flag = False
-            self._debug = True
+            self._debug = config.postprocessor.debug
             self._timefunc = False
             self._epoch = -1
 
@@ -79,7 +77,7 @@ def debug_tta(cls):
         def reload_network(self, net):
 
             super().reload_network(net)
-            if self._debug_now:
+            if self._debug:
                 print('*** reloaded network')
 
         @debugged
@@ -89,7 +87,7 @@ def debug_tta(cls):
             super().setup(net, id_loader_dict, ood_loader_dict)
             # self.loss = timedfunc('loss')(self.loss)
 
-            if not self._debug_now:
+            if not self._debug:
                 return
             print('ID LOADER DICT')
             _unfold_(id_loader_dict)
@@ -113,7 +111,7 @@ def debug_tta(cls):
         def calculate_conf(self, epoch=0, epochs=0):
 
             b = super().calculate_conf(epoch=epoch, epochs=epochs)
-            if b and self._debug_now:
+            if b and self._debug:
                 pass  # print('*** Calculating conf ({})'.format(epoch))
             return b
 
@@ -123,7 +121,7 @@ def debug_tta(cls):
 
             n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
 
-            if self._debug_now:
+            if self._debug:
                 print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
                                                                           N=len(conf),
                                                                           l=len(self.pad_buffers[where]),
@@ -146,7 +144,7 @@ def debug_tta(cls):
         def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
             self._epoch = epoch
-            if self.calculate_conf(epoch, epochs) and self._debug_now:
+            if self.calculate_conf(epoch, epochs) and self._debug:
                 print('*** epoch {} ***'.format(epoch))
 
                 """ fc params """
@@ -164,7 +162,7 @@ def debug_tta(cls):
         def postprocess(self, *a, **kw):
             pred, conf = super().postprocess(*a, **kw)
 
-            if self._debug_now:
+            if self._debug:
                 t = self.pad_thresholds['self']
                 a = [0.05, 0.5, 0.95]
                 conf_ = conf.detach().cpu().numpy()
@@ -188,7 +186,29 @@ def debug_tta(cls):
             return super().finetune(*a, **kw)
 
         @timedfunc('next batch')
-        def next_pad_batch(self, *a, **kw):
+        def next_aux_batch(self, *a, **kw):
             return super().next_aux_batch(*a, **kw)
+
+        @debugged
+        def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
+
+            if not self._debug:
+                return
+
+            if flush:
+                for _ in self.pad_buffers:
+                    p = self.pad_buffers[_].save(os.path.join(self.config.output_dir,
+                                                              'pad_{}_{}.png'.format(_, epoch)))
+
+            if not hasattr(self, '_inspector'):
+                self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
+
+            self._inspector.epoch = epoch
+
+            printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
+            printout = flush
+            self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
+            if printout:
+                self._inspector.print()
 
     return DebugTTAPostprocessor
