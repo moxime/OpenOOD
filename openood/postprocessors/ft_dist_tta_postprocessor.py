@@ -1,10 +1,11 @@
-from .ft_tta_postprocessor import FTTTAPostprocessor
+import os
+from pathlib import Path
+from typing import Any
+import yaml
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import Any
-import os
-import yaml
+from .ft_tta_postprocessor import FTTTAPostprocessor
 
 
 class DistTTAPostprocessor(FTTTAPostprocessor):
@@ -16,6 +17,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         self.mu_ood = self.args.mu_ood if self.args else None
         self.iterations = self.args.iterations_per_phase
         self.switch_phase = self.epochs // 4
+
+        self.ft_checkpoint = None
+        if self.args.gasless:
+            self.ft_checkpoint = Path(config.output_dir) / 'checkpoint_ft.pth'
 
         # number of iterations per phase when no self padding
         min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
@@ -46,23 +51,36 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        """ stats on id val set """
-        debug = self.debug
-        # self.debug = 0
-        # output : pred[conf], conf[epoch], label[epoch]
-        t = self.pad_thresholds['self']
-        self.pad_thresholds['self'] = -np.inf
-        outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
-        for epoch in outputs[0]:
-            pred, conf, label = (_[epoch] for _ in outputs)
-            q = [0.1, 0.5, 0.9]
-            quantiles = {_: np.quantile(conf, _) for _ in q}
-            self_prop = (conf < t).mean()
-            print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                  ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                  '{:.1%} < {}'.format(self_prop, t))
-        self.debug = debug
-        self.pad_thresholds['self'] = t
+        """stats on id val set"""
+        if False:
+            debug = self.debug
+            # self.debug = 0
+            # output : pred[conf], conf[epoch], label[epoch]
+            t = self.pad_thresholds['self']
+            self.pad_thresholds['self'] = -np.inf
+            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+            for epoch in outputs[0]:
+                pred, conf, label = (_[epoch] for _ in outputs)
+                q = [0.1, 0.5, 0.9]
+                quantiles = {_: np.quantile(conf, _) for _ in q}
+                self_prop = (conf < t).mean()
+                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                      ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                      '{:.1%} < {}'.format(self_prop, t))
+            self.debug = debug
+            self.pad_thresholds['self'] = t
+
+    def reset(self, *a, **kw):
+
+        super().reset(*a, **kw)
+
+        self.ft_checkpoint_loaded = False
+        if self.ft_checkpoint:
+            try:
+                os.remove(self.ft_checkpoint)
+                self.recorder.event('load_ft_state', rm=self.ft_checkpoint.name)
+            except FileNotFoundError:
+                self.recorder.event('load_ft_state', rm='{} does not exist'.format(self.ft_checkpoint.name))
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
@@ -111,6 +129,21 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         self.phase = 'liquid'
         if epoch < self.switch_phase:
             self.phase = 'gas'
+
+        if not epoch and self.ft_checkpoint:
+            try:
+                net.load_state_dict(torch.load(self.ft_checkpoint))
+                self.ft_checkpoint_loaded = True
+                self.recorder.event('load_ft_state', 'done')
+            except FileNotFoundError:
+                self.recorder.event('load_ft_state', no='{} does not exist'.format(self.ft_checkpoint.name))
+
+        if epoch == self.epochs and self.ft_checkpoint:
+            torch.save(net.state_dict(), self.ft_checkpoint)
+
+        if self.ft_checkpoint_loaded and self.phase == 'gas':
+            self.phase = 'solid'
+            return
 
         if not self.max_iterations:
             return
