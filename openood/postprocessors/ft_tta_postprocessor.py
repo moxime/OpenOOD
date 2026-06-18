@@ -29,10 +29,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
         self.wd = self.ft_args.wd
         self.beta = self.ft_args.beta
 
+        self.epochs = self.ft_args.epochs
+
         self.filterout_null_weights = self.ft_args.only_non_zeros
         self.size_normalization = True
-
-        self.max_iterations_on = {}
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
@@ -101,23 +101,20 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return
 
         if not hasattr(self, '_inspector'):
-            self._inspector = BatchInspector()
+            self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
 
         self._inspector.epoch = epoch
 
-        printout = (self.calculate_conf(epoch, epochs) or epoch == epochs - 1 or not kw) and flush
+        printout = (not epoch or self.calculate_conf(epoch+1, epochs)) and flush
+        printout = flush
         self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
         if printout:
-            self._inspector.flush()
+            self._inspector.print()
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
 
         """
-        for _, m in self.max_iterations_on.items():
-            if self.iterations_on.get(_, 0) >= m:
-                self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
-                return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
         batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
@@ -132,9 +129,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if self.filterout_null_weights:
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
 
-        if not batch_list:
-            return
-
         if self.size_normalization:
             N_samples = len(batch_list)
             N_id_weights = len([_ for _ in batch_list if _['weights'][0] > 0])
@@ -147,7 +141,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             w_normalization = (1., 1.)
 
         minibatch_loader = DataLoader(batch_list,
-                                      shuffle=True,
+                                      shuffle=batch_list,  # if batch_list is empty, do not shuffle (bug)
                                       batch_size=self.batch_size,
                                       drop_last=False)
 
@@ -158,7 +152,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         for i, batch in enumerate(minibatch_loader):
 
-            self.iterations_on['padded_mix'] = self.iterations_on.get('padded_mix', 0) + 1
             inspection_dict = {}
 
             data = batch['data'].cuda()
@@ -169,7 +162,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             weights = batch['weights'].cuda()
             w_norm0 = weights.norm(0, dim=0)
 
-            inspection_dict.update(where=where)
+            inspection_dict.update(where=where, conf=conf)
 
             if any(conf.isnan()):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
@@ -195,7 +188,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss += w_normalization[1] * (adaptation_loss * weights.T[1]).mean()
 
             for _ in self.stratified:
-                self.iterations_on['stratified_'+_] = self.iterations_on.get('stratified_'+_, 0) + 1
                 batch_ = self.next_aux_minibatch(_)
                 data = batch_['data'].cuda()
                 logits, features = net(data, return_feature=True)
@@ -218,5 +210,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._grad += 1
             self.optimizer.step()
 
-            flush = (i == len(minibatch_loader) - 1)
-            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs, flush=flush)
+            self.inspect_minibatch(**inspection_dict, epoch=epoch, epochs=epochs)
+
+        self.inspect_minibatch(epoch=epoch, epochs=epochs, flush=True)

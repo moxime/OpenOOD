@@ -64,11 +64,12 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(DistTTAPostprocessor):
+class DebugTTAPostprocessor(OrthoTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
         self._debug = True
+        self._epoch = -1
 
     def reload_network(self, net):
 
@@ -94,20 +95,31 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
 
             print('****', name, any(_.requires_grad for _ in sub.parameters()))
 
+        for _ in self.aux_dls:
+
+            d = self.aux_dls[_].dataset
+            print('*** aux_dl[{}]: {}'.format(_, d))
+
         self.setup_flag = True
 
     def calculate_conf(self, epoch=0, epochs=0):
 
         b = super().calculate_conf(epoch=epoch, epochs=epochs)
         if b:
-            print('*** Calculating conf ({})'.format(epoch))
+            pass  # print('*** Calculating conf ({})'.format(epoch))
         return b
 
     @timedfunc('update pad buffers')
     def update_pad_buffers(self, data, conf, pred, where='self', **kw):
 
         n = super().update_pad_buffers(data, conf, pred, where=where, **kw)
-        print('*** added {} pad samples ({}) from {}'.format(n, len(self.pad_buffers[where]), where))
+        print('*** added {n}/{N} samples ({l}) to pad_{w}'.format(n=n,
+                                                                  N=len(conf),
+                                                                  l=len(self.pad_buffers[where]),
+                                                                  w=where))
+
+        print('*** x = {:.3f}+/-{:.3f}    [n={}]'.format(data.mean(), data.std(), len(data)))
+
         return n
 
     # @timedfunc('loss weight')
@@ -118,12 +130,28 @@ class DebugTTAPostprocessor(DistTTAPostprocessor):
         return w
 
     @timedfunc('init epoch')
-    def init_epoch(self, *a, **kw):
-        return super().init_epoch(*a, **kw)
+    def init_epoch(self, *a, epoch=0, epochs=0, **kw):
+        self._epoch = epoch
+        if self.calculate_conf(epoch, epochs):
+            print('*** epoch {} ***'.format(epoch))
+        super().init_epoch(*a, epoch=epoch, **kw)
 
     @timedfunc('post process')
     def postprocess(self, *a, **kw):
-        return super().postprocess(*a, **kw)
+        pred, conf = super().postprocess(*a, **kw)
+
+        t = self.pad_thresholds['self']
+        a = [0.05, 0.5, 0.95]
+        conf_ = conf.detach().cpu().numpy()
+        q = np.quantile(conf_, a)
+        q_ = dict(zip(q, a))
+        q_[t] = (conf_ < t).mean()
+        q_ = {_: len(conf_) * q_[_] for _ in sorted(q_)}
+
+        print('[chunk ({}) calculated conf at epoch {}]'.format(len(conf_), self._epoch),
+              ' || '.join('({:.0f}) < {:.2f}'.format(_[1], _[0]) for _ in q_.items()))
+
+        return pred, conf
 
     @timedfunc('adaptation loss')
     def adaptation_loss(self, *a, **kw):

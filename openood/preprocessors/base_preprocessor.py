@@ -7,6 +7,7 @@ from .transform import Convert, interpolation_modes, normalization_dict
 
 class BasePreprocessor():
     """For train dataset standard transformation."""
+
     def __init__(self, config: Config):
         self.pre_size = config.dataset.pre_size
         self.image_size = config.dataset.image_size
@@ -54,3 +55,6 @@ class BasePreprocessor():
 
     def __call__(self, image):
         return self.transform(image)
+
+    def __repr__(self):
+        return ''.join(map(str.strip, self.transform.__repr__().split('\n')))
