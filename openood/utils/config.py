@@ -374,4 +374,9 @@ if __name__ == '__main__':
     config = setup_config()
     print(config)
 
-    print(config.network.margin)
+    with open('/tmp/c.yml', 'w') as f:
+        yaml.dump(config,
+                  f,
+                  default_flow_style=False,
+                  sort_keys=False,
+                  indent=2)

@@ -104,14 +104,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._inspector = BatchInspector()
 
         self._inspector.epoch = epoch
-        self._inspector.iterations += 1
-        if self.calculate_conf(epoch, epochs):
-            self._inspector.update_mb(epoch, epochs=epochs, flush=flush, **kw)
 
-        if flush and epoch == epochs - 1:
-            print('[chunk] {} it / {} epochs = {} it /epoch'.format(self._inspector.iterations,
-                                                                    epochs,
-                                                                    self._inspector.iterations / epochs))
+        printout = (self.calculate_conf(epoch, epochs) or epoch == epochs - 1 or not kw) and flush
+        self._inspector.update_mb(epoch, epochs=epochs, printout=printout, **kw)
+        if printout:
+            self._inspector.flush()
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -119,6 +116,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
         for _, m in self.max_iterations_on.items():
             if self.iterations_on.get(_, 0) >= m:
+                self.inspect_minibatch(epoch=epoch-1, epochs=epochs, flush=True)
                 return
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
@@ -133,6 +131,9 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         if self.filterout_null_weights:
             batch_list = [_ for _ in batch_list if _['weights'].norm()]
+
+        if not batch_list:
+            return
 
         if self.size_normalization:
             N_samples = len(batch_list)

@@ -126,12 +126,14 @@ class TTAPostprocessor(BasePostprocessor):
 
         return n
 
-    def new_chunk(self, net, data):
+    def new_chunk(self, net, data, epochs=0):
         """
         done before postprocessing chunk (data)
         """
         if self.reload_network_at_chunk:
             self.reload_network(net)
+
+        self.iterations_on = {}
 
         for _ in ('id', 'ood'):
             if _ not in self.pad_buffers:
@@ -244,14 +246,12 @@ class TTAPostprocessor(BasePostprocessor):
             num_chunk += 1
             data = chunk['data'].cuda()
             label = chunk['label'].cuda()
-            self.new_chunk(net, data)
+            self.new_chunk(net, data, epochs=epochs)
 
             """ Pred calculated here will the kept for all the FT
 
             """
             pred = None
-
-            self.iterations_on = {}
 
             for epoch in range(epochs+1):
 
@@ -260,11 +260,10 @@ class TTAPostprocessor(BasePostprocessor):
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
                     pred, conf = self.postprocess(net, data, pred=pred)
+                    for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
+                        outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
                 self.init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
-
-                for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
-                    outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
                 if epoch < epochs:
                     with self.finetune_mode(net):
