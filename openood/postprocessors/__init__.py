@@ -37,7 +37,7 @@ from .scale_postprocessor import ScalePostprocessor
 from .ssd_postprocessor import SSDPostprocessor
 from .she_postprocessor import SHEPostprocessor
 from .temp_scaling_postprocessor import TemperatureScalingPostprocessor
-from .utils import get_postprocessor
+from .utils import get_postprocessor, get_tta_postprocessor
 from .vim_postprocessor import VIMPostprocessor
 from .rotpred_postprocessor import RotPredPostprocessor
 from .rankfeat_postprocessor import RankFeatPostprocessor
@@ -49,3 +49,4 @@ from .reweightood_postprocessor import ReweightOODPostprocessor
 from .adascale_postprocessor import AdaScalePostprocessor
 from .neco_postprocessor import NeCOPostprocessor
 from .tta_postprocessor import TTAPostprocessor
+from .debug_tta_postprocessor import DebugTTAPostprocessor

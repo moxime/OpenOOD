@@ -45,6 +45,10 @@ from .gen_postprocessor import GENPostprocessor
 from .relation_postprocessor import RelationPostprocessor
 from .neco_postprocessor import NeCOPostprocessor
 from .tta_postprocessor import TTAPostprocessor
+from .debug_tta_postprocessor import DebugTTAPostprocessor
+from .ft_tta_postprocessor import FTTTAPostprocessor
+from .ft_ortho_tta_postprocessor import OrthoTTAPostprocessor
+from .ft_dist_tta_postprocessor import DistTTAPostprocessor
 
 
 def get_postprocessor(config: Config):
@@ -94,6 +98,28 @@ def get_postprocessor(config: Config):
         't2fnorm': T2FNormPostprocessor,
         'neco': NeCOPostprocessor,
         'tta': TTAPostprocessor,
+        'debug': DebugTTAPostprocessor,
+        'ft': FTTTAPostprocessor,
+        'ft_ortho': OrthoTTAPostprocessor,
+        'ft_dist': DistTTAPostprocessor
     }
 
     return postprocessors[config.postprocessor.name](config)
+
+
+def get_tta_postprocessor(config):
+
+    def modify_inference(func):
+
+        def modified_func(*a, epochs=0, progress_bar=None, **kw):
+            out = func(*a, **kw)
+            return tuple({0: _} for _ in out)
+
+        return modified_func
+
+    processor = get_postprocessor(config)
+
+    if not isinstance(processor, TTAPostprocessor):
+        processor.inference = modify_inference(processor.inference)
+
+    return processor

@@ -30,6 +30,7 @@ from .resnet18_32x32 import ResNet18_32x32
 from .resnet18_64x64 import ResNet18_64x64
 from .resnet18_224x224 import ResNet18_224x224
 from .resnet18_256x256 import ResNet18_256x256
+from .resnet_c10 import resnet20
 from .resnet50 import ResNet50
 from .rot_net import RotNet
 from .udg_net import UDGNet
@@ -46,6 +47,9 @@ def get_network(network_config):
 
     if network_config.name == 'resnet18_32x32':
         net = ResNet18_32x32(num_classes=num_classes)
+
+    elif network_config.name == 'resnet20_32x32':
+        net = resnet20(num_classes=num_classes)
 
     elif network_config.name == 'resnet18_256x256':
         net = ResNet18_256x256(num_classes=num_classes)
@@ -426,5 +430,87 @@ def get_network(network_config):
         else:
             net.cuda()
 
-    cudnn.benchmark = True
+    # cudnn.benchmark = True
     return net
+
+
+if __name__ == '__main__':
+
+    import time
+    import argparse
+    import numpy as np
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--net', default='resnet18_32x32')
+    parser.add_argument('--batch', type=int, nargs='+', default=[32, 64, 128])
+    parser.add_argument('-N', type=int, default=1000)
+    parser.add_argument('--device', default='cuda')
+    parser.add_argument('--ckpt')
+
+    args = parser.parse_args()
+
+    print(args)
+
+    class BogusConfig:
+
+        pass
+
+    def time_backprop(*batch_sizes, net_name='resnet18_32x32', Nt=1000, device='cuda', ckpt=None):
+
+        device = device if torch.cuda.is_available() else 'cpu'
+        net_config = BogusConfig()
+
+        net_config.name = net_name
+        net_config.num_classes = 10
+        net_config.pretrained = False
+        net_config.num_gpus = 1
+
+        net = get_network(net_config)
+
+        ce = torch.nn.CrossEntropyLoss()
+
+        net.train()
+
+        if ckpt:
+            print('loading ckpt from', ckpt, end='... ', flush=True)
+            net.load_state_dict(torch.load(ckpt))
+            print('done')
+
+        optim = torch.optim.SGD(net.parameters(), lr=1e-4)
+
+        print(net)
+
+        print(next(iter(net.parameters())).device)
+
+        t_unit_ = []
+
+        for batch_size in batch_sizes:
+            print('batch_size={}'.format(batch_size), end='', flush=True)
+            x = torch.randn(batch_size, 3, 32, 32, device=device)
+            y = torch.randint(10, (batch_size,), device=device)
+
+            for i in range(1, Nt+1):
+
+                t0 = time.time()
+                if not (i % (Nt//10)):
+                    print('.', end='', flush=True)
+                out = net(x)
+                loss = ce(out, y)
+                loss.backward()
+
+                optim.step()
+                optim.zero_grad()
+
+                t_unit_.append((time.time() - t0))
+
+                t_unit = np.mean(t_unit_)
+                t_unit_std = np.std(t_unit_)
+
+                print('\r{:4}: {:.0f}ms/batch +- {:.0f}ms = {:.3f}us/i'.format(batch_size,
+                                                                               t_unit * 1e3,
+                                                                               t_unit_std * 1e3,
+                                                                               t_unit / batch_size * 1e6),
+                      end=' ' * 10)
+
+    time_backprop(*args.batch, net_name=args.net, Nt=args.N, device=args.device, ckpt=args.ckpt)

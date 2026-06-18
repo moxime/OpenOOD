@@ -35,6 +35,7 @@ class ImglistDataset(BaseDataset):
         super(ImglistDataset, self).__init__(**kwargs)
 
         self.name = name
+        self.filename = imglist_pth.split('/')[-1]
         with open(imglist_pth) as imgfile:
             self.imglist = imgfile.readlines()
         self.data_dir = data_dir
@@ -54,6 +55,10 @@ class ImglistDataset(BaseDataset):
             return len(self.imglist)
         else:
             return min(len(self.imglist), self.maxlen)
+
+    def __repr__(self):
+
+        return '{n} [{l}]'.format(n=self.filename, l=len(self))
 
     def getitem(self, index):
         line = self.imglist[index].strip('\n')

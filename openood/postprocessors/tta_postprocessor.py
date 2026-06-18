@@ -1,88 +1,257 @@
-from typing import Any
-
+import os
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from sklearn.metrics import pairwise_distances_argmin_min
-import scipy
+from contextlib import contextmanager
+from typing import Any
 from tqdm import tqdm
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+import openood.utils.comm as comm
+
 from .base_postprocessor import BasePostprocessor
-from .info import num_classes_dict
 
-
-def _unfold_(obj, prefix='', prefix_inc='  '):
-
-    if isinstance(obj, (list, tuple)):
-        for _ in obj:
-            _unfold_(obj, prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
-
-        return
-
-    if isinstance(obj, dict):
-
-        for _ in obj:
-            print(prefix + _)
-            _unfold_(obj[_], prefix=prefix+prefix_inc, prefix_inc=prefix_inc)
-
-        return
-
-    str_ = type(obj)
-
-    if isinstance(obj, torch.utils.data.dataloader.DataLoader):
-        str_ = '{N}= {n}x{m} s: {s} from {f}'.format(n=len(obj), m=obj.batch_size,
-                                                     N=len(obj) * obj.batch_size,
-                                                     s=type(obj.sampler).__name__[0],
-                                                     f=obj.dataset)
-
-    print(prefix + str_)
+import time
 
 
 class TTAPostprocessor(BasePostprocessor):
     def __init__(self, config):
         super().__init__(config)
-        self.setup_flag = False
-        print('*** INIT ***')
-        print(config)
-        print('*** END OF INIT ***')
-        self.args_dict = self.config.postprocessor.postprocessor_sweep
+
         self.args = self.config.postprocessor.postprocessor_args
-        self.temperature = self.args.temperature
-        self.bogus = self.args.bogus
+        self.args_dict = self.config.postprocessor.postprocessor_sweep
+        # batch_size for fine_tuning
+        self.checkpoint = config.network.checkpoint
 
-    def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
-        if self.setup_flag:
-            return
+        self.reload_network_at_chunk = config.postprocessor.reload_network
 
-        print('ID LOADER DICT')
-        _unfold_(id_loader_dict)
+        self.chunk_size = self.config.pipeline.chunk_size
 
-        print('OOD LOADER DICT')
-        _unfold_(ood_loader_dict)
+        self.pad_sizes = {_: int(self.config.postprocessor.padding.get(_, 0) * self.chunk_size)
+                          for _ in ('self', 'id', 'ood')}
 
-        self.setup_flag = True
+        self.pad_thresholds = dict(self=-np.inf, id=np.inf, ood=np.inf)
 
-    def process_batch(self, net, data):
+        self_threshold = self.config.postprocessor.padding.threshold
+        if self_threshold is not None:
+            self.pad_thresholds['self'] = self_threshold
+
+        self.debug = config.debug
+
+        self.ood_ratio = config.pipeline.ood_ratio
+
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
+        """setup is done once (for instance, get some metrics on the
+        training id dataset
+
+        """
         pass
 
+    def reload_network(self, net):
+        net.load_state_dict(torch.load(self.checkpoint))
+
+    def reset(self, net, data_loader, padding_id_dl=None, padding_ood_dl=None):
+        """reset is done at each new "experiment" (dataset)
+
+        for instance, if postprocessor manages an history dict, this
+        might be the place to do it (by overriding this method)
+
+        """
+
+        self.reload_network(net)
+
+        self.pad_buffers = {_: [] for _ in ('self', 'ood', 'id')}
+
+        self.pad_dls = {}
+        if padding_id_dl:
+            self.pad_dls['id'] = padding_id_dl
+        if padding_ood_dl:
+            self.pad_dls['ood'] = padding_ood_dl
+
+    def next_pad_batch(self, where):
+
+        assert where in self.pad_dls, where
+
+        try:
+            return next(self._pad_iters[where])
+        except AttributeError:
+            self._pad_iters = {}
+        except (KeyError, StopIteration):
+            self._pad_iters[where] = iter(self.pad_dls[where])
+
+        return self.next_pad_batch(where)
+
+    def update_pad_buffers(self, data, conf, pred, where='self', **kw):
+        """ add x from data to pad_set, depending on conf and predicted label
+
+        each element is added as a dictionary
+
+        {'data': x, 'conf': conf, 'pred': pred, 'where': where}
+
+        where can be 'ood' (knonw ood from ext_padding), 'id' (known id eg from train) or 'self'
+
+        """
+        n = 0
+        threshold = self.pad_thresholds[where]
+
+        i_ = conf <= threshold
+        n = min(i_.sum(), self.pad_sizes[where])
+        # remove older samples that are replaced by new ones
+        self.pad_buffers[where] = self.pad_buffers[where][n:]
+        # append at most n samples
+        for x, s, y in zip(data[i_][-n:], conf[i_][-n:], pred[i_][-n:]):
+            self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
+
+        return n
+
+    def new_chunk(self, net, data):
+        """
+        done before postprocessing chunk (data)
+        """
+        if self.reload_network_at_chunk:
+            self.reload_network(net)
+
+    def calculate_conf(self, epoch=0, epochs=0):
+
+        # when do we calculate conf
+        return epoch in (0, epochs)
+
+    def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
+        return
+
     @torch.no_grad()
-    def postprocess(self, net: nn.Module, data: Any):
-        output = net(data) / (self.temperature + self.bogus)
+    def postprocess(self, net: nn.Module, data: Any, pred=None):
+        """ postprocess is done for each "chunk" of data at each epoch
+        """
+        output = net(data)
         score = torch.softmax(output, dim=1)
-        conf, pred = torch.max(score, dim=1)
+
+        if pred is None:
+            _, pred = torch.max(score, dim=1)
+        conf = torch.gather(score, -1, pred.unsqueeze(-1)).squeeze(-1)
+
         return pred, conf
-        # logits = net(data)
-        # preds = logits.argmax(1)
-        # softmax = F.softmax(logits, 1).cpu().numpy()
-        # scores = -pairwise_distances_argmin_min(
-        #     softmax, np.array(self.mean_softmax_val), metric=self.kl)[1]
-        # return preds, torch.from_numpy(scores)
 
-    def set_hyperparam(self, hyperparam: list):
-        print('set hyperparam', *hyperparam)
-        self.temperature, self.bogus = hyperparam
+    @classmethod
+    def _finetune_mode(cls, net, finetune=True):
 
-    def get_hyperparam(self):
-        print('get hyperparam')
-        return [self.temperature, self.bogus]
+        if isinstance(net, dict):
+            for subnet in net.values():
+                cls.finetune_mode(subnet, finetune=finetune)
+
+        return
+        for module in net.modules():
+            if isinstance(module, (torch.nn.BatchNorm2d, torch.nn.BatchNorm1d)):
+                module.eval()
+            else:
+                module.train(finetune)
+
+    @contextmanager
+    def finetune_mode(self, net):
+        self._finetune_mode(net, True)
+        try:
+            yield
+        finally:
+            self._finetune_mode(net, False)
+
+    def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
+        """finetune is done after postprocess (that way you can
+        retrieve results before any finetuning ; that's why
+        postprocess is done epochs+1 times, to benefit from n=epochs
+        finetuning)
+
+        """
+
+        # for instance you can create a minibatch_loader
+        # ...
+        pass
+
+    def epoch_sumup(self, data, conf, pred, delta_pad, num_chunk, epoch, epochs):
+
+        n_pad = len(self.pad_buffers['self'])
+        r = (conf < 0).float().mean()
+
+        min_conf = conf.min()
+        max_conf = conf.max()
+        q1 = conf.quantile(self.ood_ratio)
+        q2 = conf.quantile(0.5)
+        q3 = conf.quantile(0.75)
+
+        s = (f'self pad: {n_pad} (+{delta_pad}) [{epoch}/{epochs}]'
+             f' conf: < {min_conf:5.2f} --[{q1:5.2f} | {q2:5.2f} | {q3:5.2f}]-- {max_conf:4.2f} >')
+
+        try:
+            s = '\{}\ '.format(self._clipped_grad) + s
+        except AttributeError:
+            pass
+
+        return s
+
+    def inference(self,
+                  net: nn.Module,
+                  data_loader: DataLoader,
+                  padding_id_dl=None,
+                  padding_ood_dl=None,
+                  epochs=0,
+                  progress: bool = True):
+
+        outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
+
+        self.reset(net, data_loader, padding_id_dl=padding_id_dl, padding_ood_dl=padding_ood_dl)
+
+        progress_bar = tqdm(data_loader,
+                            dynamic_ncols=True,
+                            disable=not progress or not comm.is_main_process())
+        num_chunk = 0
+        delta_self_pad = '--'
+        for chunk in progress_bar:
+            if (num_chunk > self.debug * len(data_loader)) and self.debug:
+                break
+            num_chunk += 1
+            data = chunk['data'].cuda()
+            label = chunk['label'].cuda()
+            self.new_chunk(net, data)
+
+            """ Pred calculated here will the kept for all the FT
+
+            """
+            pred = None
+
+            for epoch in range(epochs+1):
+
+                """
+                Important: we keep pred calculated prior to the FT
+                """
+                if self.calculate_conf(epoch=epoch, epochs=epochs):
+                    pred, conf = self.postprocess(net, data, pred=pred)
+
+                self.init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
+
+                for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
+                    outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
+
+                if epoch < epochs:
+                    with self.finetune_mode(net):
+                        self.finetune(net, data, conf, pred, epoch=epoch, epochs=epochs)
+
+                progress_bar.set_postfix_str(self.epoch_sumup(data,
+                                                              conf,
+                                                              pred,
+                                                              delta_self_pad,
+                                                              num_chunk,
+                                                              epoch,
+                                                              epochs))
+
+            delta_self_pad = self.update_pad_buffers(data=data,
+                                                     conf=conf,
+                                                     pred=pred,
+                                                     where='self')
+        # convert values into numpy array
+        for _ in outputs_by_epochs:
+            for epoch in outputs_by_epochs[_]:
+                outputs_by_epochs[_][epoch] = torch.cat(outputs_by_epochs[_][epoch]).numpy().astype(
+                    float if _ == 'conf' else int)
+
+        return tuple(outputs_by_epochs[_] for _ in ('pred', 'conf', 'label'))

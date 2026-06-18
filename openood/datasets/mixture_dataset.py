@@ -42,26 +42,40 @@ class MixtureDataset(Dataset):
 
     def __getitem_from_tuple__(self, t):
 
-        def flattens(t1, t2):
-
-            if not isinstance(t2, tuple):
-                return (t1, t2)
-
-            return tuple((t1, *flattens(*t2)))
+        def flatten(*seq):
+            # TBF
+            for e in seq:
+                if isinstance(e, (list, tuple)):
+                    yield from flatten(*e)
+                else:
+                    yield e
 
         sub, i = t
 
-        # if i >= self._lengths[sub]:
-        #     raise IndexError('{}[{}>{}]'.format(sub, i, self._lengths[sub]))
+        sample = self._datasets[sub][i]
 
-        data, label = self._datasets[sub][i]
+        if isinstance(sample, dict):
+            label = sample['label']
+        else:
+            label = sample[1]
 
         if self._flattens_sub:
-            return data, flattens(sub, label)
+            label = tuple(flatten(sub, label))
         else:
-            return data, (sub, label)
+            label = (sub, label)
+
+        if isinstance(sample, dict):
+            sample['label'] = label
+        else:
+            sample = sample[0], label
+
+        return sample
 
     def __getitem__(self, i):
+
+        if isinstance(i, int) and i < 0:
+
+            return self.__getitem__(i + self._len)
 
         if isinstance(i, tuple):
 
@@ -101,7 +115,9 @@ class MixtureTimeSampler(Sampler):
 
         self.lengths = lengths
 
-        self._len = sum(lengths.values())
+        self._unit_length = min(lengths.values())
+
+        self._len = self._unit_length * len(lengths)
 
         self._first_index = {}
         i = 0
@@ -118,29 +134,52 @@ class MixtureTimeSampler(Sampler):
 
     def __iter__(self):
 
-        iters = {_: iter(self._subsamplers[_]) for _ in self._subsamplers}
-        already_chosen = {_: 0 for _ in self.lengths}
+        DEBUG = False
 
-        choose_from = list(already_chosen)
+        iters = {_: iter(self._subsamplers[_]) for _ in self._subsamplers}
+        remainders = {_: self._unit_length for _ in self.lengths}
+
+        choose_from = list(remainders)
 
         chosen_idx = None
+        chosen = None
 
         a = 1/self._period
 
         for t in range(len(self)):
-            p_ = [(self.lengths[_] - already_chosen[_]) / (len(self)-t) for _ in iters]
-            probabilites = torch.tensor(p_)
-            # print('===', t)
-            # print(already_chosen, ' '.join(map('{:.4f}'.format, p_)))
 
-            if chosen_idx is not None and probabilites[chosen_idx] > 0:
-                probabilites *= a
-                probabilites[chosen_idx] += (1 - a)
+            remain_current_subset = remainders.get(chosen, 0)
+            change_subset = torch.rand(1) < a
 
-            chosen_idx = torch.multinomial(probabilites, 1)
+            # if no remaining in current subset, change subset
+            if remain_current_subset == 0:
+                change_subset = 1
+
+            # all remaining samples are in current subset
+            if remain_current_subset == len(self) - t:
+                change_subset = 0
+
+            change_subset = (((torch.rand(1) < a) or (remain_current_subset == 0)) and
+                             (remain_current_subset < len(self) - t))
+
+            if DEBUG:
+                print('*** a:', a, 't:', t, '/', len(self),  'remain prev:',
+                      remain_current_subset, len(self) - t - remain_current_subset,
+                      chosen, remainders)
+
+            if change_subset:
+                p_ = [remainders[_] / (len(self) - t - remain_current_subset) for _ in iters]
+                if chosen_idx is not None:
+                    p_[chosen_idx] = 0.
+                probabilites = torch.tensor(p_)
+                chosen_idx = torch.multinomial(probabilites, 1)
+
+                if DEBUG:
+                    print(' '.join(map('{:.2e}'.format, probabilites.numpy())))
 
             chosen = choose_from[chosen_idx]
-            already_chosen[chosen] += 1
+            remainders[chosen] -= 1
+            # print(chosen, remainders, remain_prev)
 
             # print('[{:d}]    '.format(*chosen_idx), ' '.join(map('{:.4f}'.format, probabilites)))
             index = next(iters[chosen]) + self._first_index[chosen]
@@ -149,35 +188,80 @@ class MixtureTimeSampler(Sampler):
 
 class IDOODDataset(MixtureDataset):
 
-    def __init__(self, ind, ood):
+    def __init__(self, ind, **oods):
+
+        ood = MixtureDataset(**oods)
+
+        self.sub_ood = {-i-1: _ for i, _ in enumerate(oods)}
+        self._ood_idx = {_: -i-1 for i, _ in enumerate(oods)}
 
         super().__init__(ind=ind, ood=ood)
+
+    def __getitem__(self, i):
+        """get item
+
+        label given by super() is in the form of (gt, sub, label)
+
+            - gt is ind / ood
+
+            - sub is dataset
+
+            - label is the class
+
+        here we want the label to be
+
+            - label if gt is ind
+            - -ood_idx (negative label) if gt is ood_conf
+
+        """
+
+        if isinstance(i, int) and i < 0:
+            return self.__getitem__(i + len(self))
+
+        sample = super().__getitem__(i)
+
+        gt, sub, label = sample['label'] if isinstance(sample, dict) else sample[1]
+
+        if gt == 'ood':
+            label = self._ood_idx[sub]
+
+        if isinstance(sample, dict):
+            sample['label'] = label
+        else:
+            sample = sample[0], label
+
+        return sample
 
 
 class IDOODSampler(Sampler):
 
-    def __init__(self, ind_sampler, ood_sampler, ood_rate=0.1, **kw):
+    def __init__(self, data_source, ood_ratio=0.1, ood_period=1,
+                 IDSampler=RandomSampler, OODSubsampler=RandomSampler, **kw):
         """Params
 
-        - ind_sampler is a infinite random sampler on ind dataset
-
-        _ ood_sampler is a random sampler on ood
+        - data_source has to be a IDOODSampler
 
         """
 
-        assert ood_rate <= 1
-        assert ood_rate * len(ind_sampler) >= (1 - ood_rate) * len(ood_sampler)
+        assert ood_ratio <= 1
+        assert isinstance(data_source, IDOODDataset)
 
-        self.ood_rate = ood_rate
+        ind_sampler = IDSampler(data_source._datasets['ind'], num_samples=int(1e7))
+        ood_sampler = MixtureTimeSampler(data_source._datasets['ood'],  period=ood_period,
+                                         SubSampler=OODSubsampler)
+
+        assert ood_ratio * len(ind_sampler) >= (1 - ood_ratio) * len(ood_sampler)
+
+        self.ood_ratio = ood_ratio
         self.samplers = dict(ind=ind_sampler, ood=ood_sampler)
 
-        self._len = int(len(ood_sampler) / ood_rate)
+        self._len = int(len(ood_sampler) / ood_ratio)
 
     def __iter__(self):
 
         iters = {_: iter(self.samplers[_]) for _ in self.samplers}
         for _ in range(len(self)):
-            if torch.rand(1) <= self.ood_rate:
+            if torch.rand(1) <= self.ood_ratio:
                 try:
                     yield ('ood', next(iters['ood']))
                 except StopIteration:
@@ -199,11 +283,12 @@ if __name__ == '__main__':
 
     class FakeDataset(Dataset):
 
-        def __init__(self, prefix, len=10000, num_of_classes=10):
+        def __init__(self, prefix, len=10000, num_of_classes=10, dtype='tuple'):
 
             self._proto = prefix + '{:05d}'
             self._len = len
             self.num_of_classes = num_of_classes
+            self._dtype = dtype
 
         def __getitem__(self, i):
 
@@ -212,92 +297,90 @@ if __name__ == '__main__':
 
             if i >= self._len:
                 raise IndexError('{}>={}'.format(i, self._len))
-            return self._proto.format(i), i % self.num_of_classes
+
+            data, label = self._proto.format(i), i % self.num_of_classes
+            if self._dtype == 'tuple':
+                return data, label
+
+            return {'data': data, 'label': label}
 
         def __len__(self):
 
             return self._len
 
         def __repr__(self):
-            return '[{}..{}]'.format(self[0][0], self[-1][0])
+            if self._dtype == 'tuple':
+                first, last = self[0][0], self[-1][0]
+            else:
+                first, last = self[0]['data'], self[-1]['data']
+            return '[{}..{}]'.format(first, last)
 
-    def create_datasets(oods=4, N=10000, ood_prefix='ood-'):
+    def create_datasets(oods=4, N=10000, ood_prefix='ood-', dtype='tuple'):
         d_names = list('abcdefghijklmnopqrstuvwxyz01234567890')[:oods]
-        oodsets = {_: FakeDataset(ood_prefix+_, N) for _ in d_names}
+        oodsets = {_: FakeDataset(ood_prefix+_, (i+1) * N, dtype=dtype)
+                   for i, _ in enumerate(d_names)}
 
         oodset = MixtureDataset(**oodsets)
 
-        indset = MixtureDataset(x=FakeDataset('ind--', N))
+        indset = MixtureDataset(x=FakeDataset('ind--', N, dtype=dtype))
 
-        ind_ood_set = IDOODDataset(indset, oodset)
+        ind_ood_set = IDOODDataset(indset, **oodsets)
 
         return indset, oodset, ind_ood_set
 
-    def test_mixture(K=4, N=10000):
+    def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True, dtype='dict'):
 
-        _, d, _ = create_datasets(oods=K, N=N)
+        _, d, _ = create_datasets(oods=K, N=N, dtype=dtype)
 
-        # del m_
+        alpha = min(K / (K - 1) / period, 1)
+        p_0 = 1e-102 + alpha * (1-1/K)
+        m_mean_th = 1/p_0
+        m_std_th = (1-p_0)**0.5/p_0
 
-        try:
-            old_m_ = m_
-        except NameError:
-            old_m_ = None
+        s = MixtureTimeSampler(d, period=period)
 
-        m_ = [1000]
+        loader = DataLoader(d, sampler=s, batch_size=batch_size)
 
-        m_ = [1, 100, 500, 1000, 5000, 10000]
+        current_subset = None
+        stream = []
+        entropy = []
+        for batch in loader:
+            if isinstance(batch, tuple):
+                data, labels = batch
+            else:
+                data, labels = batch['data'], batch['label']
 
-        if old_m_ != m_:
-            streams = {}
+            _, (s_, y) = data, labels
+            value, counts = np.unique(s_, return_counts=True)
+            entropy.append(np.log2(len(s_)) - (counts * np.log2(counts)).sum() / len(s_))
+            for subset in s_:
+                if subset != current_subset:
+                    current_subset = subset
+                    stream.append(1)
+                else:
+                    stream[-1] += 1
 
-        for m in m_:
-            if old_m_ == m_:
-                break
+        stream = np.array(stream)
+        entropy = np.array(entropy).mean()
 
-            alpha = min(len(d_names) / (len(d_names) - 1) / m, 1)
-            p_0 = 1e-102 + alpha * (1-1/len(d_names))
-            m_mean_th = 1/p_0
-            m_std_th = (1-p_0)**0.5/p_0
+        print('m = {:8}: {:5.1e} +-{:5.1e} ({:5.1e}+-({:5.1e}) 2^H={:.2f}'.format(period,
+                                                                                  stream.mean(),
+                                                                                  stream.std(),
+                                                                                  m_mean_th,
+                                                                                  m_std_th,
+                                                                                  2**entropy))
 
-            s = MixtureTimeSampler(d, period=m)
+        if fig:
+            fig_name = '{}'.format(period)
+            fig = plt.figure(fig_name)
 
-            loader = DataLoader(d, sampler=s, batch_size=1)
+            ax = fig.gca()
 
-            current_subset = None
-            stream_lengths = []
-            for batch in loader:
-                for subset, data in zip(*batch):
-                    if subset != current_subset:
-                        current_subset = subset
-                        stream_lengths.append(1)
-                    else:
-                        stream_lengths[-1] += 1
-
-            stream_lengths = np.array(stream_lengths)
-            streams[m] = stream_lengths
-
-            print('m = {:8}: {:.1f} +-{:.1f} ({:.1f}+-({:.1f})'.format(m,
-                                                                       stream_lengths.mean(),
-                                                                       stream_lengths.std(),
-                                                                       m_mean_th, m_std_th))
-
-        figs = {}
-        plt.close('all')
-        for m in streams:
-
-            fig_name = '{}'.format(m)
-            figs[fig_name] = plt.figure(fig_name)
-
-            stream = streams[m]
-
-            ax = figs[fig_name].gca()
             ax.clear()
+            ax.plot(stream.cumsum(), stream, 'x')
 
-            ax.plot(stream.cumsum(), streams[m], 'x')
-
-            mean = streams[m].mean()
-            std = streams[m].std()
+            mean = stream.mean()
+            std = stream.std()
 
             ax.set_title('{:.1f} +/- {:.1f}'.format(mean, std))
 
@@ -310,56 +393,82 @@ if __name__ == '__main__':
 
             counts *= lengths
 
-            fig_name += ' hist'
-            figs[fig_name] = plt.figure(fig_name)
+            fig.show()
 
-            ax = figs[fig_name].gca()
+            fig_name += ' hist'
+            fig = plt.figure(fig_name)
+
+            ax = fig.gca()
 
             ax.bar(lengths, counts)
 
-        for f in figs:
-            if 'hist' in f:
-                figs[f].show()
+            fig.show()
 
-    def test_ind_ood_sampler(N=1000, ood_rate=0.1, n_oods=4, batch_size=512, period=1e5):
+        # returns last batch
+        return stream, entropy, s_
 
-        indset, oodset, in_ood_set = create_datasets(oods=n_oods, N=N)
+    def test_ind_ood_sampler(N=1000, ood_ratio=0.1, n_oods=4, batch_size=512, period=np.inf,
+                             dtype='dict', fig=True):
 
-        ind_sampler = RandomSampler(indset, num_samples=50*len(indset))
-        ood_sampler = MixtureTimeSampler(oodset,  period=period)
+        indset, oodset, in_out_set = create_datasets(oods=n_oods, N=N, dtype=dtype)
 
-        idod_sampler = IDOODSampler(ind_sampler, ood_sampler, ood_rate=ood_rate)
+        in_out_sampler = IDOODSampler(in_out_set, ood_ratio=ood_ratio, ood_period=period)
 
         num = dict(ind=0, ood=0)
-        for i, _ in enumerate(idod_sampler):
+        for i, _ in enumerate(in_out_sampler):
             num[_[0]] += 1
 
         n = i + 1
-        print('{} samples drawn {:.1%} of which are ood'.format(n, num['ood']/n))
+        print('{} samples drawn, {} ({:.1%}) of which are ood'.format(n, num['ood'], num['ood']/n))
 
-        batch_sampler = BatchSampler(idod_sampler, batch_size=512, drop_last=True)
-
-        loader = DataLoader(in_ood_set, batch_size=batch_size,
-                            sampler=idod_sampler)
+        loader = DataLoader(in_out_set, batch_size=batch_size,
+                            sampler=in_out_sampler)
 
         stats = {'ood-'+_: [] for _ in oodset._datasets}
         stats['ind-x'] = []
 
-        for _, (iod, s, y) in loader:
+        for batch in loader:
+            if isinstance(batch, tuple):
+                label = batch[1]
+            else:
+                label = batch['label']
 
+            s = [in_out_set.sub_ood.get(int(_), 'x') for _ in label]
             for sub in stats:
-                stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(y))
+                stats[sub].append(sum(_ == sub.split('-')[1] for _ in s) / len(s))
 
-        return dset, loader, stats
+        if fig:
+            fig = plt.figure('P={}'.format(period))
+            y_ = np.vstack(list(stats.values()))
+            x = list(range(len(y_[0])))
+            fig.gca().stackplot(x, y_, labels=list(stats))
+
+            fig.legend()
+            fig.show()
+
+        return in_out_set, loader, stats
 
     plt.close('all')
-    for period in [1, 2, 10, 100, 1e5]:
-        dset, loader, stats = test_ind_ood_sampler(N=10000, ood_rate=0.5, n_oods=2, period=period)
 
-        fig = plt.figure('P={}'.format(period))
-        for _ in stats:
+    N = 10000
 
-            fig.gca().plot(stats[_], label=_)
-        fig.legend()
+    p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+    p_ = []
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = [1e4]
 
-        fig.show()
+    if p_:
+        stream, entropy, batch = zip(*(test_mixture(K=4, N=N, period=period, fig=True)
+                                       for period in p_))
+
+    p_ = [1, 2, 10, 100, 1000, 10000, 1e500]
+    p_ = [10, 20, 50, 100, 200, 500]
+    p_ = [1]
+    p_ = [1,  np.inf]
+    p_ = [1, 100, 1000, 10000, np.inf]
+    p_ = []
+
+    if p_:
+        dset, loader, stats = zip(*(test_ind_ood_sampler(N=N, ood_ratio=0.1, n_oods=4,
+                                                         period=period, fig=True)
+                                    for period in p_))

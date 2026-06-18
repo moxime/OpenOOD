@@ -1,0 +1,60 @@
+exp_name: "'@{ood_dataset.name}'_'@{network.name}'_'@{pipeline.name}'_'@{evaluator.name}'/'@{postprocessor.name}'_'@{pipeline.ood_ratio}'_'@{evaluator.ood_period}'_'@{postprocessor.ft.epochs}'/s'@{seed}'-'@{pipeline.seed}'/'@{mark}'"
+output_dir: ./results/tta/
+save_output: True
+merge_option: default # disabled if 'save_output' is False
+mark: default # to mark the version of experiment
+seed: 0
+
+num_gpus: 1
+num_workers: 8
+num_machines: 1
+machine_rank: 0
+
+debug: 0. # if debug >0, stops after a proportion of debug of chunks of data
+
+network:
+  pretrained: True
+
+pipeline:
+  name: test_tta_ood
+  seed: 0
+  # chunk_size: the size of batches of mixed ood/id to test at a time
+  # if tta is done by finetuning, every chunck_size input images, the model
+  # is reset
+  chunk_size: 512
+  # in the chunk, portion of ood
+  ood_ratio: 0.1
+  #
+  #
+  
+evaluator:
+  name: tta_ood
+  ood_scheme: ood
+  # ood_period
+  # if 0: do not test mixtures of ood
+  # if > 0: mixtures of ood are tested
+  # in the tested chunks, the ood source is randomly changed every ood_period (in average)
+  # for instance: ood_period=1 will provide fully heterogeneous chunks of data
+  # if ood_period is large (-1 for inf) we change ood when ood source is depleted
+  ood_period: 0.
+
+
+postprocessor:
+  reload_network: True # reset network at new chunk
+  padding:
+    id: 2.
+    ood: 0.5
+    self: 1.
+    threshold:  # put x in pad_sef if conf <= threshold, no value will be -inf
+  ft: # defaults value for ft
+    epochs: 0
+    lr: 5.0e-4
+    wd: 5.0e-4
+    # unfreeze net for possible ft
+    # in all, head, penultimate
+    unfreeze: penultimate
+
+  
+recorder:
+  save_scores: True
+  save_csv: True

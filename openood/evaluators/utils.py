@@ -9,6 +9,7 @@ from .fsood_evaluator import FSOODEvaluator
 from .ood_evaluator import OODEvaluator
 from .osr_evaluator import OSREvaluator
 from .patchcore_evaluator import PatchCoreEvaluator
+from .tta_ood_evaluator import TTAOODEvaluator
 
 
 def get_evaluator(config: Config):
@@ -16,6 +17,7 @@ def get_evaluator(config: Config):
         'base': BaseEvaluator,
         'ood': OODEvaluator,
         'fsood': FSOODEvaluator,
+        'tta_ood': TTAOODEvaluator,
         'patch': PatchCoreEvaluator,
         'arpl': ARPLEvaluator,
         'ad': ADEvaluator,

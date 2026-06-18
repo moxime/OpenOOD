@@ -1,0 +1,8 @@
+postprocessor:
+  name: ft
+  APS_mode: False
+  ft:
+    epochs: 20
+    beta: 1.
+  postprocessor_args:
+    temperature: 100
