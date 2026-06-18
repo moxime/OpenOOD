@@ -23,8 +23,8 @@ dataset:
     dataset_class: ImglistDataset
     data_dir: ./data/images_classic/
     imglist_pth: ./data/benchmark_imglist/cifar10/val_cifar10.txt
-    batch_size: 200
-    shuffle: False
+    batch_size: 512
+    shuffle: True
   test:
     dataset_class: ImglistDataset
     data_dir: ./data/images_classic/

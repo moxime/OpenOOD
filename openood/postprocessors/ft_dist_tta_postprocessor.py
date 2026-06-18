@@ -1,6 +1,7 @@
 from .ft_tta_postprocessor import FTTTAPostprocessor
-import torch.nn as nn
+import numpy as np
 import torch
+import torch.nn as nn
 from typing import Any
 import os
 import yaml
@@ -36,14 +37,32 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                       sort_keys=False,
                       indent=2)
 
-    def setup(self, net, *a, **kw):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
-        super().setup(net, *a, **kw)
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
         if self.mu_ood:
             if self.mu_ood == 'zero':
                 self.mu_ood = torch.zeros_like(net.get_fc_layer().weight[0])
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
+
+        """ stats on id val set """
+        debug = self.debug
+        # self.debug = 0
+        # output : pred[conf], conf[epoch], label[epoch]
+        t = self.pad_thresholds['self']
+        self.pad_thresholds['self'] = -np.inf
+        outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+        for epoch in outputs[0]:
+            pred, conf, label = (_[epoch] for _ in outputs)
+            q = [0.1, 0.5, 0.9]
+            quantiles = {_: np.quantile(conf, _) for _ in q}
+            self_prop = (conf < t).mean()
+            print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                  ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                  '{:.1%} < {}'.format(self_prop, t))
+        self.debug = debug
+        self.pad_thresholds['self'] = t
 
     def epoch_sumup(self, *a, **kw):
         return '[{}]'.format(self.phase[:3]) + super().epoch_sumup(*a, **kw)
