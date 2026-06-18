@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from collections import deque
 from contextlib import contextmanager
 from typing import Any
 from tqdm import tqdm
@@ -12,7 +13,30 @@ import openood.utils.comm as comm
 
 from .base_postprocessor import BasePostprocessor
 
-import time
+
+class PadBuffer(deque):
+
+    def __init__(self, size, threshold, thr_key='conf'):
+
+        super().__init__(maxlen=size)
+        self._thr_key = thr_key
+        self.threshold = threshold
+
+    def append(self, **kw):
+
+        assert self._thr_key in kw
+        if kw[self._thr_key] <= self.threshold:
+            super().append(kw)
+            return 1
+        return 0
+
+    def empy(self):
+
+        while True:
+            try:
+                self.pop()
+            except IndexError:
+                break
 
 
 class TTAPostprocessor(BasePostprocessor):
@@ -21,15 +45,16 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.args = self.config.postprocessor.postprocessor_args
         self.args_dict = self.config.postprocessor.postprocessor_sweep
-        # batch_size for fine_tuning
         self.checkpoint = config.network.checkpoint
 
         self.reload_network_at_chunk = config.postprocessor.reload_network
 
         self.chunk_size = self.config.pipeline.chunk_size
 
+        pad_aux = [_ for _ in ('self', 'id', 'ood') if self.config.postprocessor.padding.get(_, 0) > 0]
+
         self.pad_sizes = {_: int(self.config.postprocessor.padding.get(_, 0) * self.chunk_size)
-                          for _ in ('self', 'id', 'ood')}
+                          for _ in pad_aux}
 
         self.pad_thresholds = dict(self=-np.inf, id=np.inf, ood=np.inf)
 
@@ -46,12 +71,18 @@ class TTAPostprocessor(BasePostprocessor):
         training id dataset
 
         """
+
+        aux_dls = id_ood_loader_dict['aux']
+        self.aux_dls = {_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes}
+        self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_])
+                            for _ in self.pad_sizes}
+
         pass
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
 
-    def reset(self, net, data_loader, padding_id_dl=None, padding_ood_dl=None):
+    def reset(self, net):
         """reset is done at each new "experiment" (dataset)
 
         for instance, if postprocessor manages an history dict, this
@@ -61,24 +92,19 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.reload_network(net)
 
-        self.pad_buffers = {_: [] for _ in ('self', 'ood', 'id')}
-
-        self.pad_dls = {}
-        if padding_id_dl:
-            self.pad_dls['id'] = padding_id_dl
-        if padding_ood_dl:
-            self.pad_dls['ood'] = padding_ood_dl
+        for _ in self.pad_buffers:
+            self.pad_buffers[_].empty()
 
     def next_pad_batch(self, where):
 
-        assert where in self.pad_dls, where
+        assert where in self.pad_buffers, '{} is not used for padding'.format(where)
 
         try:
-            return next(self._pad_iters[where])
+            return next(self._aux_iters[where])
         except AttributeError:
-            self._pad_iters = {}
+            self._aux_iters = {}
         except (KeyError, StopIteration):
-            self._pad_iters[where] = iter(self.pad_dls[where])
+            self._aux_iters[where] = iter(self.aux_dls[where])
 
         return self.next_pad_batch(where)
 
@@ -93,15 +119,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         """
         n = 0
-        threshold = self.pad_thresholds[where]
-
-        i_ = conf <= threshold
-        n = min(i_.sum(), self.pad_sizes[where])
-        # remove older samples that are replaced by new ones
-        self.pad_buffers[where] = self.pad_buffers[where][n:]
-        # append at most n samples
-        for x, s, y in zip(data[i_][-n:], conf[i_][-n:], pred[i_][-n:]):
-            self.pad_buffers[where].append(dict(data=x, pred=y, conf=s, where=where))
+        for x, s, y in zip(data, conf, pred):
+            n += self.pad_buffers[where].append(data=x, pred=y, conf=s, where=where)
 
         return n
 
@@ -112,12 +131,32 @@ class TTAPostprocessor(BasePostprocessor):
         if self.reload_network_at_chunk:
             self.reload_network(net)
 
+        for _ in ('id', 'ood'):
+            if _ not in self.pad_buffers:
+                continue
+            batch = self.next_pad_batch(_)
+            data = batch['data'].cuda()
+            if _ == 'id':
+                pred = batch['label'].cuda()
+                conf = torch.inf * torch.ones_like(pred)
+            else:
+                pred, conf = self.postprocess(net, data)
+
+            self.update_pad_buffers(data, conf, pred, where=_)
+
     def calculate_conf(self, epoch=0, epochs=0):
 
         # when do we calculate conf
         return epoch in (0, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
+
+        self.n_samples = {_: len(self.pad_buffers[_]) for _ in self.pad_buffers}
+        self.n_samples['mix'] = len(conf)
+
+        self.n_samples['total'] = sum(self.n_samples.values())
+        self.n_samples['original'] = self.n_samples.get('id', 0)
+        self.n_samples['alt'] = self.n_samples['total'] - self.n_samples['original']
 
         return
 
@@ -139,7 +178,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         if isinstance(net, dict):
             for subnet in net.values():
-                cls.finetune_mode(subnet, finetune=finetune)
+                cls._finetune_mode(subnet, finetune=finetune)
 
         return
         for module in net.modules():
@@ -192,14 +231,12 @@ class TTAPostprocessor(BasePostprocessor):
     def inference(self,
                   net: nn.Module,
                   data_loader: DataLoader,
-                  padding_id_dl=None,
-                  padding_ood_dl=None,
                   epochs=0,
                   progress: bool = True):
 
         outputs_by_epochs = {_: {} for _ in ('pred', 'conf', 'label')}
 
-        self.reset(net, data_loader, padding_id_dl=padding_id_dl, padding_ood_dl=padding_ood_dl)
+        self.reset(net)
 
         progress_bar = tqdm(data_loader,
                             dynamic_ncols=True,

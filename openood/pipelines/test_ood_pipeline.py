@@ -20,7 +20,7 @@ class TestOODPipeline:
         # get dataloader
         id_loader_dict = get_dataloader(self.config)
         if is_tta:
-            id_ood_loader_dict = get_tta_ood_dataloader(self.config)
+            id_ood_aux_loader_dict = get_tta_ood_dataloader(self.config)
         else:  # test_tta_ood
             ood_loader_dict = get_ood_dataloader(self.config)
 
@@ -38,7 +38,7 @@ class TestOODPipeline:
 
         # setup for distance-based methods
         if is_tta:
-            postprocessor.setup(net, id_loader_dict, id_ood_loader_dict)
+            postprocessor.setup(net, id_loader_dict, id_ood_aux_loader_dict)
         else:
             postprocessor.setup(net, id_loader_dict, ood_loader_dict)
         print('\n', flush=True)
@@ -70,7 +70,7 @@ class TestOODPipeline:
                                fsood=True)
         else:
             if is_tta:
-                evaluator.eval_ood(net, id_ood_loader_dict,
+                evaluator.eval_ood(net, id_ood_aux_loader_dict,
                                    postprocessor)
             else:
                 evaluator.eval_ood(net, id_loader_dict, ood_loader_dict,

@@ -64,7 +64,7 @@ def _unfold_(obj, prefix='', prefix_inc='      '):
 
 
 # A TTA PostProcessor to look at batches
-class DebugTTAPostprocessor(OrthoTTAPostprocessor):
+class DebugTTAPostprocessor(FTTTAPostprocessor):
     def __init__(self, config):
         super().__init__(config)
         self.setup_flag = False
@@ -81,6 +81,7 @@ class DebugTTAPostprocessor(OrthoTTAPostprocessor):
         if self.setup_flag:
             return
         super().setup(net, id_loader_dict, ood_loader_dict)
+        self.loss = timedfunc('loss')(self.loss)
 
         print('ID LOADER DICT')
         _unfold_(id_loader_dict)

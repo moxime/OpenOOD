@@ -1,5 +1,7 @@
 from typing import Any
 
+from collections import deque
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, BatchSampler
 from .tta_postprocessor import TTAPostprocessor
 
-from openood.losses import uniform_ce
+from openood.losses import uniform_ce, MarginCrossEntropy
 import logging
 import time
 
@@ -17,6 +19,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
         super().__init__(config)
         self.batch_size = self.config.ood_dataset.batch_size
 
+        self.stratified = [_ for _ in ('id', 'ood') if self.config.postprocessor.padding.get(_, 0) < 0]
+
         self.setup_flag = False
         self.ft_args = self.config.postprocessor.ft
         self.lr = self.ft_args.lr
@@ -25,13 +29,16 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
-    def setup(self, net: nn.Module, id_loader_dict, ood_loader_dict):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         if self.setup_flag:
             return
-        super().setup(net, id_loader_dict, ood_loader_dict)
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
 
+        for _ in self.stratified:
+            self.aux_dls[_] = id_ood_loader_dict['aux'][_]
+
+        self.loss = MarginCrossEntropy(margin=self.config.network.margin, reduction='none')
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
-        self.loss = nn.CrossEntropyLoss(reduction='none')
 
         self.setup_flag = True
 
@@ -50,6 +57,21 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
+
+    def reset(self, net):
+        pass
+
+    def next_aux_minibatch(self, where):
+
+        assert where in self.stratified, '{} is ot stratified'.format(where)
+        try:
+            return next(self._aux_iters[where])
+        except AttributeError:
+            self._aux_iters = {}
+        except (KeyError, StopIteration):
+            self._aux_iters[where] = iter(self.aux_dls[where])
+
+        return self.next_aux_minibatch(where)
 
     def alternate_loss(self, logits, features, labels, net):
 
@@ -84,7 +106,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         w_loss_w = {}
         for w in wheres:
             w_loss_w[w] = w_loss[:, where == w].mean(-1)
-            print('{}: {:.3f}, {:.3f}'.format(w, *w_loss_w[w].squeeze()))
+            print('{}: {:.2f}, {:.2f}'.format(w, *w_loss_w[w].squeeze()))
+        means = w_loss.mean(-1)
+        print('orig: {:.2g} x {:.2g} = alt: {:.2g}'.format(means[0], means[1] / means[0], means[1]))
+        if hasattr(self, 'n_samples'):
+            print(self.n_samples)
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -92,7 +118,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
         """
 
         mix_batch = {'conf': conf, 'pred': pred, 'data': data, 'where': ['mix' for _ in pred]}
-        batch_list = [dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())]
+        batch_list = deque([dict(zip(mix_batch, t)) for t in zip(*mix_batch.values())])
 
         # for instance you can create a minibatch_loader
 
@@ -117,8 +143,10 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 raise ValueError('{} NaN in conf'.format(conf.isnan().int().sum()))
 
             logits, features = net(data, return_feature=True)
-
-            original_loss = self.loss(logits, pred)
+            if self.n_samples['original']:
+                original_loss = self.loss(logits, pred)
+            else:
+                original_loss = torch.zeros_like(conf)
 
             alternate_loss = self.alternate_loss(logits=logits, features=features,
                                                  labels=pred, net=net)
@@ -132,7 +160,19 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             self.optimizer.zero_grad()
 
-            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean()
+            loss = (torch.vstack([original_loss, alternate_loss]) * w_loss).mean() * 2
+
+            for _ in self.stratified:
+                batch_ = self.next_aux_minibatch(_)
+                data = batch_['data'].cuda()
+                logits, features = net(data, return_feature=True)
+                if _ == 'ood':
+                    raise NotImplementedError
+                else:
+                    pred = batch_['label'].cuda()
+                    stratified_loss = self.loss(logits, pred)
+
+                loss += stratified_loss.mean()
 
             loss.backward()
 

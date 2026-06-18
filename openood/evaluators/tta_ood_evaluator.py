@@ -27,12 +27,12 @@ class TTAOODEvaluator(OODEvaluator):
         super(TTAOODEvaluator, self).__init__(config)
         self.tta_epochs = config.postprocessor.ft.get('epochs', 0)
 
-        self.ood_period = config.evaluator.get('ood_period', 0)
+        self.ood_period = config.pipeline.get('ood_period', 0)
         print('ood_period set to {}'.format(self.ood_period))
 
     def eval_ood(self,
                  net: nn.Module,
-                 id_ood_data_loaders: Dict[str, Dict[str, DataLoader]],
+                 id_ood_aux_data_loaders: Dict[str, Dict[str, DataLoader]],
                  postprocessor: BasePostprocessor,
                  fsood: bool = False):
         if type(net) is dict:
@@ -46,17 +46,17 @@ class TTAOODEvaluator(OODEvaluator):
 
         splits = ('mixture',) if self.ood_period else ('nearood', 'farood')
 
-        for ood_split in [_ for _ in splits if _ in id_ood_data_loaders]:
+        for ood_split in [_ for _ in splits if _ in id_ood_aux_data_loaders]:
             # load nearood data and compute ood metrics
             print(u'\u2500' * 70, flush=True)
             self._eval_ood(net,
-                           id_ood_data_loaders,
+                           id_ood_aux_data_loaders,
                            postprocessor,
                            ood_split=ood_split)
 
     def _eval_ood(self,
                   net: nn.Module,
-                  id_ood_data_loaders: Dict[str, Dict[str, DataLoader]],
+                  id_ood_aux_data_loaders: Dict[str, Dict[str, DataLoader]],
                   postprocessor: BasePostprocessor,
                   ood_split: str = 'nearood'):
         print(f'Processing {ood_split}...', flush=True)
@@ -64,20 +64,16 @@ class TTAOODEvaluator(OODEvaluator):
 
         tta_epochs = 0 if self.tta_epochs is None else self.tta_epochs
 
-        df = self._init_df(id_ood_data_loaders[ood_split], tta_epochs)
+        df = self._init_df(id_ood_aux_data_loaders[ood_split], tta_epochs)
 
         torch.manual_seed(self.config.pipeline.seed)
         np.random.seed(self.config.pipeline.seed)
 
-        for dataset_name, id_ood_dl in id_ood_data_loaders[ood_split].items():
+        for dataset_name, id_ood_dl in id_ood_aux_data_loaders[ood_split].items():
             print(f'Performing inference on {dataset_name} dataset...',
                   flush=True)
 
-            padding_id_dl = id_ood_data_loaders.get('padding', {}).get('id')
-            padding_ood_dl = id_ood_data_loaders.get('padding', {}).get('ood')
             pred, conf, label = postprocessor.inference(net, id_ood_dl,
-                                                        padding_id_dl=padding_id_dl,
-                                                        padding_ood_dl=padding_ood_dl,
                                                         epochs=tta_epochs)
 
             for epoch in pred:
@@ -86,7 +82,7 @@ class TTAOODEvaluator(OODEvaluator):
                                       epoch=epoch, epochs=self.tta_epochs)
 
             print(f'Computing metrics on {dataset_name} dataset...')
-            self._update_df(df, id_ood_data_loaders[ood_split], dataset_name, pred, conf, label)
+            self._update_df(df, id_ood_aux_data_loaders[ood_split], dataset_name, pred, conf, label)
             for epoch in pred:
                 self._print_metrics(list(df.loc[(epoch, dataset_name)]),
                                     dataset_name, epoch, max(pred))
