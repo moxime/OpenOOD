@@ -89,18 +89,30 @@ class MixtureDataset(Dataset):
 
         return self.__getitem_from_tuple__((subset, i - start))
 
-    def __repr__(self):
+    def __repr__(self, header=''):
 
-        s_d = {_: repr(self._datasets[_]) for _ in self._datasets}
+        elbow = "└──"
+        pipe = "│  "
+        tee = "├──"
+        blank = "   "
+        str_list = []
+        for i, (name, d) in enumerate(self._datasets.items()):
+            last = i == len(self._datasets) - 1
+            if not isinstance(d, MixtureDataset):
+                d_str_ = repr(d).split('\n')
+                for ii, s in enumerate(d_str_):
+                    if ii:
+                        str_list.append(header + (blank if last else pipe) + ' ' * len(name + '  ') + s)
 
-        for sub in s_d:
+                    else:
+                        str_list.append(header + (elbow if last else tee) + '{}: {}'.format(name, s))
 
-            s = '\n'.join('{} {}'.format(sub if i == 0 else ' '*(len(sub)-2)+'|-', line)
-                          for i, line in enumerate(s_d[sub].split('\n')))
-            s_d[sub] = s
+            else:
+                str_list.append(header + (elbow if last else tee) + name)
+                child_str_list = d.__repr__(header=header + (blank if last else pipe)).split('\n')
+                str_list.extend(child_str_list)
 
-        return '\n'.join(s_d[_] for _ in s_d)
-        # return '\n'.join(['{}: {}'.format(_, repr(self._datasets[_])) for _ in self._datasets])
+        return '\n'.join(str_list)
 
 
 class MixtureTimeSampler(Sampler):
@@ -314,7 +326,7 @@ if __name__ == '__main__':
                 first, last = self[0][0], self[-1][0]
             else:
                 first, last = self[0]['data'], self[-1]['data']
-            return '[{}..{}]'.format(first, last)
+            return '[{}..{}]\n[FAKE]\n[TR]'.format(first, last)
 
     def create_datasets(oods=4, N=10000, ood_prefix='ood-', dtype='tuple'):
         d_names = list('abcdefghijklmnopqrstuvwxyz01234567890')[:oods]
@@ -328,6 +340,12 @@ if __name__ == '__main__':
         ind_ood_set = IDOODDataset(indset, **oodsets)
 
         return indset, oodset, ind_ood_set
+
+    ind, ood, ind_ood_set = create_datasets()
+
+    print(ind_ood_set)
+
+    #  sys.exit()
 
     def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True, dtype='dict'):
 
@@ -466,8 +484,8 @@ if __name__ == '__main__':
     p_ = [10, 20, 50, 100, 200, 500]
     p_ = [1]
     p_ = []
-    p_ = [1, 100, 1000, 10000, np.inf]
     p_ = [1,  np.inf]
+    p_ = [1, 100, 1000, 10000, np.inf]
 
     if p_:
         dset, loader, stats = zip(*(test_ind_ood_sampler(N=N, ood_ratio=0.1, n_oods=4,

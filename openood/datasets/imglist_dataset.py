@@ -58,9 +58,8 @@ class ImglistDataset(BaseDataset):
 
     def __repr__(self):
 
-        pre = repr(self.preprocessor)
-        aux = repr(self.transform_aux_image)
-        return '{n} [{l}] --(>{p})'.format(n=self.filename, l=len(self), p=pre)
+        pre = '\n'.join(' > ' + _ for _ in repr(self.preprocessor).split('\n'))
+        return '{n} [{l}]\n{p}'.format(n=self.filename, l=len(self), p=pre)
 
     def getitem(self, index):
         line = self.imglist[index].strip('\n')

@@ -1,4 +1,5 @@
 from .ft_tta_postprocessor import FTTTAPostprocessor
+from .debug_tta_postprocessor import debug_tta
 from torch.utils.data import DataLoader, BatchSampler
 import torch.nn as nn
 import torch
@@ -8,6 +9,7 @@ import os
 import yaml
 
 
+@debug_tta
 class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def __init__(self, config):
