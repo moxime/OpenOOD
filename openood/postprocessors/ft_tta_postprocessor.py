@@ -1,19 +1,13 @@
-from typing import Any
-
-from collections import deque
-
-import numpy as np
+import os
 import torch
 import torch.nn as nn
 
-from torch.utils.data import DataLoader, BatchSampler
+from torch.utils.data import DataLoader
 from .tta_postprocessor import TTAPostprocessor
 
 from .batch_inspector import BatchInspector
 
 from openood.losses import uniform_ce, MarginCrossEntropy
-import logging
-import time
 
 
 class FTTTAPostprocessor(TTAPostprocessor):
@@ -100,6 +94,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if not hasattr(self, '_debug'):
             return
 
+        if flush:
+            for _ in self.pad_buffers:
+                p = self.pad_buffers[_].save(os.path.join(self.config.output_dir,
+                                                          'pad_{}_{}.png'.format(_, epoch)))
+
         if not hasattr(self, '_inspector'):
             self._inspector = BatchInspector(threshold=self.pad_thresholds.get('self', -2))
 
@@ -140,17 +139,25 @@ class FTTTAPostprocessor(TTAPostprocessor):
         else:
             w_normalization = (1., 1.)
 
+        mb_generator = torch.Generator().manual_seed(0)
+        mb_generator = None
+
         minibatch_loader = DataLoader(batch_list,
                                       shuffle=batch_list,  # if batch_list is empty, do not shuffle (bug)
                                       batch_size=self.batch_size,
-                                      drop_last=False)
+                                      generator=mb_generator,
+                                      drop_last=False)  # TBT: dop_last=True
 
         if epoch == 0:
-            # to track clipped_grad (removed, see below)
+            # to track clipped_grad (see below)
             self._clipped_grad = 0
             self._grad = 0
 
         for i, batch in enumerate(minibatch_loader):
+
+            # if not i:
+            #     h = hash(tuple(batch['data'].cpu().numpy().flatten()))
+            #     print('HASH:', h)
 
             inspection_dict = {}
 
