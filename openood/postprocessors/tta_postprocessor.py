@@ -323,8 +323,7 @@ class TTAPostprocessor(BasePostprocessor):
         self.reset(net)
 
         print('***', len(data_loader))
-        print('***', data_loader.dataset)
-        batch = next(iter(data_loader))
+        print('***', data_loader.dataset[0])
         progress_bar = tqdm(data_loader,
                             dynamic_ncols=True,
                             disable=not progress or not comm.is_main_process())
