@@ -69,6 +69,7 @@ class MixtureDataset(Dataset):
         else:
             sample = sample[0], label
 
+        sample.pop('soft_label', None)
         return sample
 
     def __getitem__(self, i):
