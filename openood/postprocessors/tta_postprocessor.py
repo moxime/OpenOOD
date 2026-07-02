@@ -160,8 +160,8 @@ class TTAPostprocessor(BasePostprocessor):
             conf = self.postprocess(net, b['data'].to('cuda'))[1]
             kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
 
-            self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
-                                avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
+        self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
+                            avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
 
         kept_conf = (0., 0)
 
