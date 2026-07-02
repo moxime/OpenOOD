@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from .ft_tta_postprocessor import FTTTAPostprocessor
+from collections import deque
 
 
 class DistTTAPostprocessor(FTTTAPostprocessor):
@@ -42,6 +43,24 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                       sort_keys=False,
                       indent=2)
 
+    def threshold_on_val(self, net, id_loader_dict):
+        debug = self.debug
+        # self.debug = 0
+        # output : pred[conf], conf[epoch], label[epoch]
+        t = self.pad_thresholds['self']
+        self.pad_thresholds['self'] = -np.inf
+        outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+        for epoch in outputs[0]:
+            pred, conf, label = (_[epoch] for _ in outputs)
+            q = [0.1, 0.5, 0.9]
+            quantiles = {_: np.quantile(conf, _) for _ in q}
+            self_prop = (conf < t).mean()
+            print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                  ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                  '{:.1%} < {}'.format(self_prop, t))
+        self.debug = debug
+        self.pad_thresholds['self'] = t
+
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
         super().setup(net, id_loader_dict, id_ood_loader_dict)
@@ -53,22 +72,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         """stats on id val set"""
         if False:
-            debug = self.debug
-            # self.debug = 0
-            # output : pred[conf], conf[epoch], label[epoch]
-            t = self.pad_thresholds['self']
-            self.pad_thresholds['self'] = -np.inf
-            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
-            for epoch in outputs[0]:
-                pred, conf, label = (_[epoch] for _ in outputs)
-                q = [0.1, 0.5, 0.9]
-                quantiles = {_: np.quantile(conf, _) for _ in q}
-                self_prop = (conf < t).mean()
-                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                      ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                      '{:.1%} < {}'.format(self_prop, t))
-            self.debug = debug
-            self.pad_thresholds['self'] = t
+            self.threshold_on_val(net, id_loader_dict)
 
     def reset(self, *a, **kw):
 

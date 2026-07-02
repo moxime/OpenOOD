@@ -142,6 +142,33 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.recorder = get_recorder(config)
 
+    def padding_ood_filtering(self, net, id_ood_aux_loader_dict, n=10000, passes=20, buffer_length=4):
+
+        assert 'ood' in self.aux_dls
+
+        dl = self.aux_dls['ood']
+
+        ratio = n / (passes * len(dl.dataset))
+        n_keep = int(dl.batch_size * buffer_length * ratio)
+
+        assert n_keep > 2
+
+        kept_conf = (0., 0)
+
+        for _ in range(passes):
+            for __ in range(len(dl) // buffer_length):
+                batch_ = [self.next_aux_batch['ood'] for __ in range(buffer_length)]
+
+                """ self.postprocess(batch) returns pred, conf """
+                conf = torch.vstack([self.postprocess(batch)[1] for batch in batch_])
+                i_ = torch.sort(conf)[1][:n_keep]
+                kept = torch.vstack(batch_)[i_]
+
+                kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
+
+            self.recorder.event('pad_ood_filter', dpass=_, n=kept_conf[1],
+                                avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
+
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training id dataset
@@ -164,6 +191,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         _unfold('id', id_loader_dict)
         _unfold('id_ood', id_ood_loader_dict)
+
+        self.padding_ood_filtering(net, id_ood_loader_dict)
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
