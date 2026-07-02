@@ -157,7 +157,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         for b in dl:
 
-            conf = self.postprocess(net, b)[1]
+            conf = self.postprocess(net, b['data'].to('cuda'))[1]
             kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
 
             self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
