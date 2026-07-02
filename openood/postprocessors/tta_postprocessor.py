@@ -155,6 +155,16 @@ class TTAPostprocessor(BasePostprocessor):
 
         kept_conf = (0., 0)
 
+        for b in dl:
+
+            conf = self.postprocess(net, b)[1]
+            kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
+
+            self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
+                                avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
+
+        kept_conf = (0., 0)
+
         for _ in range(passes):
             for __ in range(len(dl) // buffer_length):
                 batch_ = [self.next_aux_batch('ood')['data'].to('cuda')
