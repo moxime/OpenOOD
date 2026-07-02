@@ -153,14 +153,12 @@ class TTAPostprocessor(BasePostprocessor):
 
         assert n_keep > 2
 
-        kept_conf = (0., 0)
-
         conf = torch.hstack([self.postprocess(net, b['data'].to('cuda'))[1] for b in dl])
+        self.recorder.event('pad_ood_filter', dpass='start', n=len(conf),
+                            avge='{:.2f}'.format(conf.mean()))
         conf = conf.sort()[0][:n]
-        kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
-
-        self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
-                            avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
+        self.recorder.event('pad_ood_filter', dpass='start', n=len(conf),
+                            avge='{:.2f}'.format(conf.mean()))
 
         kept_conf = (0., 0)
 
