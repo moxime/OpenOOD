@@ -159,6 +159,9 @@ class TTAPostprocessor(BasePostprocessor):
         conf = conf.sort()[0][:n]
         self.recorder.event('pad_ood_filter', dpass='start', n=len(conf),
                             avge='{:.2f}'.format(conf.mean()))
+        conf = conf.sort()[0][:n // passes]
+        self.recorder.event('pad_ood_filter', dpass='start', n=len(conf),
+                            avge='{:.2f}'.format(conf.mean()))
 
         kept_conf = (0., 0)
 
