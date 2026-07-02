@@ -165,7 +165,7 @@ class TTAPostprocessor(BasePostprocessor):
                 i_ = torch.sort(conf)[1][:n_keep]
                 kept = torch.vstack(batch_)[i_]
 
-                kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
+                kept_conf = (kept_conf[0] + conf[i_].sum(), kept_conf[1] + len(i_))
 
             self.recorder.event('pad_ood_filter', dpass=_, n=kept_conf[1],
                                 avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
