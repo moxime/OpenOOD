@@ -162,7 +162,6 @@ class TTAPostprocessor(BasePostprocessor):
 
                 """ self.postprocess(batch) returns pred, conf """
                 conf = torch.hstack([self.postprocess(net, batch)[1] for batch in batch_])
-                print('****', len(conf), n_keep)
                 i_ = torch.sort(conf)[1][:n_keep]
                 kept = torch.vstack(batch_)[i_]
 
