@@ -157,7 +157,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         for _ in range(passes):
             for __ in range(len(dl) // buffer_length):
-                batch_ = [self.next_aux_batch['ood'] for __ in range(buffer_length)]
+                batch_ = [self.next_aux_batch('ood') for __ in range(buffer_length)]
 
                 """ self.postprocess(batch) returns pred, conf """
                 conf = torch.vstack([self.postprocess(batch)[1] for batch in batch_])
