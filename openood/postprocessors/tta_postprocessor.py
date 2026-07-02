@@ -155,11 +155,9 @@ class TTAPostprocessor(BasePostprocessor):
 
         kept_conf = (0., 0)
 
-        for b in dl:
-
-            conf = self.postprocess(net, b['data'].to('cuda'))[1]
-            conf = conf.sort()[0][:(dl.batch_size * n)//len(dl.dataset)]
-            kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
+        conf = torch.hstack([self.postprocess(net, b['data'].to('cuda'))[1] for b in dl])
+        conf = conf.sort()[0][:n]
+        kept_conf = (kept_conf[0] + conf.sum(), kept_conf[1] + len(conf))
 
         self.recorder.event('pad_ood_filter', dpass='start', n=kept_conf[1],
                             avge='{:.2f}'.format(kept_conf[0] / kept_conf[1]))
