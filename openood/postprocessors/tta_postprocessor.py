@@ -142,7 +142,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.recorder = get_recorder(config)
 
-    def padding_ood_filtering(self, net, id_ood_aux_loader_dict, n=10000, passes=20, buffer_length=4):
+    def padding_ood_filtering(self, net, id_ood_aux_loader_dict, n=10000, passes=10, buffer_length=10):
 
         assert 'ood' in self.aux_dls
 
