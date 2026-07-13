@@ -2,10 +2,11 @@ postprocessor:
   name: ft_dist
   APS_mode: False
   padding:
-    threshold: -2.
+    threshold: 0.
   ft:
-    epochs: 100
+    epochs: 1000
     beta: 0.016
+    unfreeze: penultimate
   postprocessor_args:
     mu_ood: zero
     gasless: True

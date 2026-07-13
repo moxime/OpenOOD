@@ -179,9 +179,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if pred is None:
             _, pred = torch.max(logits, dim=1)
 
+        logits_y = logits.gather(-1, pred.unsqueeze(-1)).squeeze(-1)
+
         b_y = bias.index_select(0, pred)  # of shape M
         m_y_2 = weight.index_select(0, pred).square().sum(-1)  # of shape M (MxL summed on last dim)
 
-        conf = logits - b_y - 0.5 * m_y_2
+        conf = logits_y - b_y - 0.5 * m_y_2
 
         return pred, conf
