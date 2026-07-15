@@ -175,16 +175,15 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         weight = net.get_fc_layer().weight
 
         logits, features = net(data, return_feature=True)
-        softmax_probs = torch.softmax(logits, dim=1)
 
         if pred is None:
             _, pred = torch.max(logits, dim=1)
 
+        logits_y = logits.gather(-1, pred.unsqueeze(-1)).squeeze(-1)
+
         b_y = bias.index_select(0, pred)  # of shape M
         m_y_2 = weight.index_select(0, pred).square().sum(-1)  # of shape M (MxL summed on last dim)
 
-        prob_y = torch.gather(softmax_probs, -1, pred.unsqueeze(-1)).squeeze(-1)
-
-        conf = prob_y.log() + 0.5 * (features - self.mu_ood).square().sum(dim=-1) - b_y - 0.5 * m_y_2
+        conf = logits_y - b_y - 0.5 * m_y_2
 
         return pred, conf
