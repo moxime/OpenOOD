@@ -52,25 +52,27 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
         """stats on id val set"""
-        print('*****', self.pad_thresholds['self'], np.isnan(self.pad_thresholds['self']))
         if np.isnan(self.pad_thresholds['self']):
             restore_attr = {attr: getattr(self, attr) for attr in ('debug', 'ft_checkpoint')}
             self.ft_checkpoint = None
             self.debug = 0
-            # output : pred[conf], conf[epoch], label[epoch]
+            # output : pred[epoch], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
             self.pad_thresholds['self'] = -np.inf
             outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
             for epoch in outputs[0]:
                 pred, conf, label = (_[epoch] for _ in outputs)
                 q = [0.1, 0.5, 0.9]
+                skew = (((conf - conf.mean()) / conf.std()) ** 3).mean()
                 quantiles = {_: np.quantile(conf, _) for _ in q}
-                self_prop = (conf < t).mean()
                 print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
                       ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                      '{:.1%} < {}'.format(self_prop, t))
+                      'skew: {:.2f}'.format(skew))
+
             for attr, val in restore_attr.items():
                 setattr(self, attr, val)
+            t = np.quantile(outputs[1][self.switch_phase], 0.1)
+            self.recorder.event('self_threshold', t)
             self.pad_thresholds['self'] = t
 
     def reset(self, *a, **kw):
