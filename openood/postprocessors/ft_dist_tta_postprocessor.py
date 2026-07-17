@@ -63,11 +63,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             for epoch in outputs[0]:
                 pred, conf, label = (_[epoch] for _ in outputs)
                 q = [0.1, 0.5, 0.9]
-                skew = (((conf - conf.mean()) / conf.std()) ** 3).mean()
+                mean = conf.mean()
+                std = conf.std()
+                skew = (((conf - mean) / std) ** 3).mean()
                 quantiles = {_: np.quantile(conf, _) for _ in q}
                 print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
                       ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                      'skew: {:.2f}'.format(skew))
+                      'mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
 
             for attr, val in restore_attr.items():
                 setattr(self, attr, val)
