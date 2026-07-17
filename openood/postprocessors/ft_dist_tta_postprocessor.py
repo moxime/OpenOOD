@@ -54,7 +54,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         """stats on id val set"""
         print('*****', self.pad_thresholds['self'], np.isnan(self.pad_thresholds['self']))
         if np.isnan(self.pad_thresholds['self']):
-            debug = self.debug
+            restore_attr = {attr: getattr(self, attr) for attr in ('debug', 'ft_checkpoint')}
+            self.ft_checkpoint = None
             self.debug = 0
             # output : pred[conf], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
@@ -68,7 +69,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
                       ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
                       '{:.1%} < {}'.format(self_prop, t))
-            self.debug = debug
+            for attr, val in restore_attr.items():
+                setattr(self, attr, val)
             self.pad_thresholds['self'] = t
 
     def reset(self, *a, **kw):
