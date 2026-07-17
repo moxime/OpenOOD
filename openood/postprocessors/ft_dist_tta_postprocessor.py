@@ -51,11 +51,15 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
+        self.in_setup_thr_on_val = False
         """stats on id val set"""
         if np.isnan(self.pad_thresholds['self']):
-            restore_attr = {attr: getattr(self, attr) for attr in ('debug', 'ft_checkpoint')}
+
+            restore_attr = {attr: getattr(self, attr)
+                            for attr in ('debug', 'ft_checkpoint', 'in_setup_thr_on_val')}
             self.ft_checkpoint = None
             self.debug = 0
+            self.in_setup_thr_on_val = True
             # output : pred[epoch], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
             self.pad_thresholds['self'] = -np.inf
@@ -68,7 +72,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 skew = (((conf - mean) / std) ** 3).mean()
                 quantiles = {_: np.quantile(conf, _) for _ in q}
                 print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                      ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
+                      ' '.join('{}:{:.2f}'.format(*i) for i in quantiles.items()),
                       'mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
 
             for attr, val in restore_attr.items():
@@ -149,6 +153,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             torch.save(net.state_dict(), self.ft_checkpoint)
 
         if self.ft_checkpoint_loaded and self.phase == 'gas':
+            self.phase = 'solid'
+            return
+
+        if self.phase == 'liquid' and self.in_setup_thr_on_val:
             self.phase = 'solid'
             return
 
