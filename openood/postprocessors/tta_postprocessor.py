@@ -142,6 +142,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.recorder = get_recorder(config)
 
+        self.aux_dls = {}
+
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
         training id dataset
@@ -149,7 +151,8 @@ class TTAPostprocessor(BasePostprocessor):
         """
 
         aux_dls = id_ood_loader_dict['aux']
-        self.aux_dls = {_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes}
+        self.aux_dls.update({_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes})
+
         self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
@@ -328,6 +331,8 @@ class TTAPostprocessor(BasePostprocessor):
         num_chunk = 0
         delta_self_pad = '--'
         for chunk in progress_bar:
+            if self.debug < 0:
+                break
             if (num_chunk > self.debug * len(data_loader)) and self.debug:
                 break
             num_chunk += 1

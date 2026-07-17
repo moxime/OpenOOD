@@ -37,8 +37,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         if self.setup_flag:
             return
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
 
+        print('***', self.pad_sizes, self.stratified)
         for _ in self.stratified:
             self.aux_dls[_] = id_ood_loader_dict['aux'][_]
 
@@ -64,6 +64,12 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
+        print('*** before super setup', self.aux_dls)
+
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
+
+        print('*** after super setup', self.aux_dls)
+
     def adaptation_loss(self, logits, features, net):
 
         return uniform_ce(logits)
@@ -79,12 +85,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return (1., 0.)
 
         return (0., self.beta)
-
-    def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
-        """
-        implement this methd in child class for debug purpose
-        """
-        pass
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
