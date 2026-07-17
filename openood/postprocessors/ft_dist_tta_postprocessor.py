@@ -128,6 +128,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
+        if self.in_setup_thr_on_val:
+            return epoch <= self.switch_phase
         return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
