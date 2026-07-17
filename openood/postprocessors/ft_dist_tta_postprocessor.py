@@ -52,9 +52,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
         """stats on id val set"""
-        if False:
+        print('*****', self.pad_thresholds['self'], np.isnan(self.pad_thresholds['self']))
+        if np.isnan(self.pad_thresholds['self']):
             debug = self.debug
-            # self.debug = 0
+            self.debug = 0
             # output : pred[conf], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
             self.pad_thresholds['self'] = -np.inf
