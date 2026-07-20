@@ -188,14 +188,14 @@ class TTAPostprocessor(BasePostprocessor):
                 std = conf.std()
                 skew = (((conf - mean) / std) ** 3).mean()
                 quantiles = {_: np.quantile(conf, _) for _ in q}
-                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                      ' '.join('{}:{:.2f}'.format(*i) for i in quantiles.items()),
-                      'mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
+                self.recorder.event('val_stats', '{}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                                    quantiles=' '.join('{}:{:.2f}'.format(*i) for i in quantiles.items()),
+                                    moments='mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
 
             for attr, val in restore_attr.items():
                 setattr(self, attr, val)
             t = np.quantile(outputs[1][self.switch_phase], 0.1)
-            self.recorder.event('self_threshold', t)
+            self.recorder.event('self_threshold', '{:.4g}'.format(t))
             self.pad_thresholds['self'] = t
 
             return outputs
