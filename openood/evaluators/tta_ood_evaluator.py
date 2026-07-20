@@ -44,6 +44,7 @@ class TTAOODEvaluator(OODEvaluator):
         if self.config.postprocessor.APS_mode:
             raise NotImplementedError
 
+        print('***** dls:', *id_ood_aux_data_loaders)
         splits = ('mixture',) if self.ood_period else ('nearood', 'farood')
 
         for ood_split in [_ for _ in splits if _ in id_ood_aux_data_loaders]:
@@ -191,7 +192,9 @@ class TTAOODEvaluator(OODEvaluator):
             net.eval()
         id_pred, id_conf, id_gt = postprocessor.inference(net, data_loader)
 
-        print('***', id_pred)
+        if not id_pred:
+            return {'acc': np.nan}
+
         self.id_pred = id_pred[0]
         self.id_conf = id_conf[0]
         self.id_gt = id_gt[0]
