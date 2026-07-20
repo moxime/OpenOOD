@@ -191,6 +191,7 @@ class TTAOODEvaluator(OODEvaluator):
             net.eval()
         id_pred, id_conf, id_gt = postprocessor.inference(net, data_loader)
 
+        print('***', id_pred)
         self.id_pred = id_pred[0]
         self.id_conf = id_conf[0]
         self.id_gt = id_gt[0]

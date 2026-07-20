@@ -38,7 +38,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
         if self.setup_flag:
             return
 
-        print('***', self.pad_sizes, self.stratified)
         for _ in self.stratified:
             self.aux_dls[_] = id_ood_loader_dict['aux'][_]
 
@@ -64,11 +63,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-        print('*** before super setup', self.aux_dls)
-
         super().setup(net, id_loader_dict, id_ood_loader_dict)
-
-        print('*** after super setup', self.aux_dls)
 
     def adaptation_loss(self, logits, features, net):
 

@@ -44,42 +44,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
         if self.mu_ood:
             if self.mu_ood == 'zero':
                 self.mu_ood = torch.zeros_like(net.get_fc_layer().weight[0])
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        self.in_setup_thr_on_val = False
-        """stats on id val set"""
-        if np.isnan(self.pad_thresholds['self']):
-
-            restore_attr = {attr: getattr(self, attr)
-                            for attr in ('debug', 'ft_checkpoint', 'in_setup_thr_on_val')}
-            self.ft_checkpoint = None
-            self.debug = 0
-            self.in_setup_thr_on_val = True
-            # output : pred[epoch], conf[epoch], label[epoch]
-            t = self.pad_thresholds['self']
-            self.pad_thresholds['self'] = -np.inf
-            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
-            for epoch in outputs[0]:
-                pred, conf, label = (_[epoch] for _ in outputs)
-                q = [0.1, 0.5, 0.9]
-                mean = conf.mean()
-                std = conf.std()
-                skew = (((conf - mean) / std) ** 3).mean()
-                quantiles = {_: np.quantile(conf, _) for _ in q}
-                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                      ' '.join('{}:{:.2f}'.format(*i) for i in quantiles.items()),
-                      'mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
-
-            for attr, val in restore_attr.items():
-                setattr(self, attr, val)
-            t = np.quantile(outputs[1][self.switch_phase], 0.1)
-            self.recorder.event('self_threshold', t)
-            self.pad_thresholds['self'] = t
+        super().setup(net, id_loader_dict, id_ood_loader_dict)
 
     def reset(self, *a, **kw):
 
