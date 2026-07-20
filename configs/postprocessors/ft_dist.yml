@@ -6,7 +6,7 @@ postprocessor:
   ft:
     epochs: 1000
     beta: 0.016
-    unfreeze: penultimate
+    unfreeze: all
   postprocessor_args:
     mu_ood: zero
     gasless: True
