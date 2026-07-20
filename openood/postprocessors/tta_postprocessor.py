@@ -198,6 +198,8 @@ class TTAPostprocessor(BasePostprocessor):
             self.recorder.event('self_threshold', t)
             self.pad_thresholds['self'] = t
 
+            return outputs
+
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
         self.recorder.event('reload_network')

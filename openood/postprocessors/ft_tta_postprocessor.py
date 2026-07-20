@@ -63,7 +63,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
+        return super().setup(net, id_loader_dict, id_ood_loader_dict)
 
     def adaptation_loss(self, logits, features, net):
 

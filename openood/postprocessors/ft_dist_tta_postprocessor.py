@@ -50,7 +50,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
+        return super().setup(net, id_loader_dict, id_ood_loader_dict)
 
     def reset(self, *a, **kw):
 

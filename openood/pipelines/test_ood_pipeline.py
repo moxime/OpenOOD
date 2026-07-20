@@ -38,7 +38,12 @@ class TestOODPipeline:
 
         # setup for distance-based methods
         if is_tta:
-            postprocessor.setup(net, id_loader_dict, id_ood_aux_loader_dict)
+            outputs = postprocessor.setup(net, id_loader_dict, id_ood_aux_loader_dict)
+            if outputs:
+                pred, conf, label = outputs
+                for epoch in pred:
+                    evaluator._save_scores(pred[epoch], conf[epoch], label[epoch], 'val',
+                                           epoch=epoch, epochs=evaluator.tta_epochs)
         else:
             postprocessor.setup(net, id_loader_dict, ood_loader_dict)
         print('\n', flush=True)
