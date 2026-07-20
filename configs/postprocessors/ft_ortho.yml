@@ -4,7 +4,7 @@ postprocessor:
   padding:
     threshold: -1.
   ft:
-    epochs: 100
+    epochs: 300
     beta: 1.
   postprocessor_args:
     gasless: True
