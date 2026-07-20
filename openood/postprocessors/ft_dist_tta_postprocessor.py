@@ -99,8 +99,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
-        if self.in_setup_thr_on_val and self.debug < 0:
-            return epoch <= self.switch_phase or epoch == epochs
+        if self.in_setup_thr_on_val and self.config.pipeline.partial < 0:
+            r = epoch <= self.switch_phase or epoch == epochs
+            print('***************', self.config.pipeline.partial, self.in_setup_thr_on_val, r)
+            return r
         return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):

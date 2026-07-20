@@ -10,7 +10,6 @@ num_workers: 8
 num_machines: 1
 machine_rank: 0
 
-debug: 0. # if debug >0, stops after a proportion of debug of chunks of data
 
 network:
   pretrained: True
@@ -22,7 +21,8 @@ pipeline:
   # if tta is done by finetuning, every chunck_size input images, the model
   # is reset
   chunk_size: 512
-  # in the chunk, portion of ood
+  # if partial >0, stops after a proportion of partial of chunks of data  # in the chunk, portion of ood
+  partial: 0. 
   ood_ratio: 0.1
   # ood_period
   # if 0: do not test mixtures of ood

@@ -136,7 +136,7 @@ class TTAPostprocessor(BasePostprocessor):
         if self_threshold is not None:
             self.pad_thresholds['self'] = self_threshold
 
-        self.debug = config.debug
+        self.partial = self.config.pipeline.partial
 
         self.ood_ratio = config.pipeline.ood_ratio
 
@@ -173,9 +173,9 @@ class TTAPostprocessor(BasePostprocessor):
         if np.isnan(self.pad_thresholds['self']):
 
             restore_attr = {attr: getattr(self, attr)
-                            for attr in ('debug', 'ft_checkpoint', 'in_setup_thr_on_val')}
+                            for attr in ('partial', 'ft_checkpoint', 'in_setup_thr_on_val')}
             self.ft_checkpoint = None
-            self.debug = 0
+            self.partial = 0.
             self.in_setup_thr_on_val = True
             # output : pred[epoch], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
@@ -363,9 +363,9 @@ class TTAPostprocessor(BasePostprocessor):
         num_chunk = 0
         delta_self_pad = '--'
         for chunk in progress_bar:
-            if self.debug < 0:
+            if self.partial < 0:
                 break
-            if (num_chunk > self.debug * len(data_loader)) and self.debug:
+            if (num_chunk > self.partial * len(data_loader)) and self.partial:
                 break
             num_chunk += 1
             data = chunk['data'].cuda()
