@@ -99,8 +99,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
-        if self.in_setup_thr_on_val:
-            return epoch <= self.switch_phase
+        if self.in_setup_thr_on_val and self.debug < 0:
+            return epoch <= self.switch_phase or epoch == epochs
         return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
@@ -113,6 +113,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         self.phase = 'liquid'
         if epoch < self.switch_phase:
             self.phase = 'gas'
+        self.recorder.event('phase', self.phase, epoch=epoch)
 
         if not epoch and self.ft_checkpoint:
             try:
@@ -127,10 +128,12 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         if self.ft_checkpoint_loaded and self.phase == 'gas':
             self.phase = 'solid'
+            self.recorder.event('phase', 'solid (gas -> solid)')
             return
 
         if self.phase == 'liquid' and self.in_setup_thr_on_val:
             self.phase = 'solid'
+            self.recorder.event('phase', 'solid (liquid -> solid in setup)')
             return
 
         if not self.max_iterations:
@@ -147,9 +150,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         epochs_per_phase = self.iterations_per_phase / it_per_epoch
 
         if self.phase == 'gas' and epoch >= epochs_per_phase:
+            self.recorder.event('phase', 'solid (gas -> solid max iter)')
             self.phase = 'solid'
 
         if self.phase == 'liquid' and (epoch - self.switch_phase) >= epochs_per_phase:
+            self.recorder.event('phase', 'solid (liquid -> solid max iter)')
             self.phase = 'solid'
 
     @torch.no_grad()
