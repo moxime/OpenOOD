@@ -158,7 +158,8 @@ class TTAPostprocessor(BasePostprocessor):
 
         def _unfold(name, dl):
             if isinstance(dl, DataLoader):
-                self.recorder.event('dl', name, set='\n'+str(dl.dataset))
+                self.recorder.event('dl', name, '[{}x{}]'.format(len(dl), dl.batch_size),
+                                    set='\n'+str(dl.dataset))
                 return
             if not isinstance(dl, dict):
                 return
