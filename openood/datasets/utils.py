@@ -109,6 +109,8 @@ def get_tta_ood_dataloader(config: Config):
 
     ind_dataset = get_dataloader(config)['test'].dataset
     ind_dataset = MixtureDataset(**{config.dataset.name: ind_dataset})
+    ind_val_dataset = get_dataloader(config)['val'].dataset
+    ind_val_dataset = MixtureDataset(**{config.dataset.name+'_val': ind_val_dataset})
     IODataset = functools.partial(IDOODDataset, ind=ind_dataset)
     pad_aux_sizes = {_: int(config.postprocessor.padding.get(_, 0) * chunk_size)
                      for _ in ('id', 'ood')}
@@ -155,14 +157,18 @@ def get_tta_ood_dataloader(config: Config):
         if split == 'val':
             # validation set
             name = ood_config.name + '_' + split
-            ood_dataset = CustomDataset(
-                name=name,
-                imglist_pth=split_config.imglist_pth,
-                data_dir=split_config.data_dir,
-                num_classes=ood_config.num_classes,
-                preprocessor=preprocessor,
-                data_aux_preprocessor=data_aux_preprocessor)
-            dataset = IODataset(**{name: ood_dataset})
+            suboods = {}
+            for dataset_name in split_config.datasets:
+                if dataset_name == 'padding':
+                    suboods[dataset_name] = padding_set
+                else:
+                    suboods[dataset_name] = CustomDataset(name=name,
+                                                          imglist_pth=split_config.imglist_pth,
+                                                          data_dir=split_config.data_dir,
+                                                          num_classes=ood_config.num_classes,
+                                                          preprocessor=preprocessor,
+                                                          data_aux_preprocessor=data_aux_preprocessor)
+            dataset = IODataset(**suboods, ind=ind_val_dataset)
             dataloader = DataLoader(dataset,
                                     batch_size=chunk_size,
                                     num_workers=ood_config.num_workers,
