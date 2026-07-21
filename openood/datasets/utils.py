@@ -162,9 +162,10 @@ def get_tta_ood_dataloader(config: Config):
                 if dataset_name == 'padding':
                     suboods[dataset_name] = padding_set
                 else:
+                    dataset_config = split_config[dataset_name]
                     suboods[dataset_name] = CustomDataset(name=name,
-                                                          imglist_pth=split_config.imglist_pth,
-                                                          data_dir=split_config.data_dir,
+                                                          imglist_pth=dataset_config.imglist_pth,
+                                                          data_dir=dataset_config.data_dir,
                                                           num_classes=ood_config.num_classes,
                                                           preprocessor=preprocessor,
                                                           data_aux_preprocessor=data_aux_preprocessor)
