@@ -181,7 +181,7 @@ class TTAPostprocessor(BasePostprocessor):
             # output : pred[epoch], conf[epoch], label[epoch]
             t = self.pad_thresholds['self']
             self.pad_thresholds['self'] = -np.inf
-            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
+            outputs = self.inference(net, id_ood_loader_dict['val'], epochs=self.epochs)
             for epoch in outputs[0]:
                 pred, conf, label = (_[epoch] for _ in outputs)
                 q = [0.1, 0.5, 0.9]

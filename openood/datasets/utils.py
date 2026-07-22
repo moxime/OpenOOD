@@ -163,6 +163,7 @@ def get_tta_ood_dataloader(config: Config):
                     subset_seed = config.pipeline.seed
                     subset_indices = torch.randperm(len(padding_set),
                                                     generator=torch.Generator().manual_seed(subset_seed))
+
                     suboods[dataset_name] = Subset(padding_set, subset_indices[:len(ind_val_dataset)])
 
                 else:
