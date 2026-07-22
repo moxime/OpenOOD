@@ -233,9 +233,13 @@ class IDOODDataset(MixtureDataset):
 
         sample = super().__getitem__(i)
 
-        print('***', type(sample), sample['label'])
+        # labels is gt, sub, [<sub/sub>,] label
+        labels = sample['label'] if isinstance(sample, dict) else sample[1]
 
-        gt, sub, label = sample['label'] if isinstance(sample, dict) else sample[1]
+        gt = labels[0]
+        sub = labels[1]
+
+        label = labels[-1]
 
         if gt == 'ood':
             label = self._ood_idx[sub]
