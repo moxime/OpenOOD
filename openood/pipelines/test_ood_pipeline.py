@@ -1,4 +1,6 @@
 import time
+import torch
+import numpy as np
 
 from openood.datasets import get_dataloader, get_ood_dataloader, get_tta_ood_dataloader
 from openood.evaluators import get_evaluator
@@ -38,6 +40,8 @@ class TestOODPipeline:
 
         # setup for distance-based methods
         if is_tta:
+            torch.manual_seed(self.config.pipeline.seed)
+            np.random.seed(self.config.pipeline.seed)
             outputs = postprocessor.setup(net, id_loader_dict, id_ood_aux_loader_dict)
             if outputs:
                 pred, conf, label = outputs
