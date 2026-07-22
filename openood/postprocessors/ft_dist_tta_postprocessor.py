@@ -101,6 +101,10 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         if self.in_setup_thr_on_val and self.config.pipeline.partial < 0:
             return epoch <= self.switch_phase or epoch == epochs
+
+        if self.partial > 0. and self.partial <= 0.2:
+            return epoch <= self.switch_phase or epoch == epochs
+
         return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
