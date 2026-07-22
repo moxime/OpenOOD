@@ -3,7 +3,7 @@ import functools
 import numpy as np
 import torch
 from numpy import load
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, Subset
 
 from openood.preprocessors.test_preprocessor import TestStandardPreProcessor
 from openood.preprocessors.utils import get_preprocessor
@@ -160,7 +160,11 @@ def get_tta_ood_dataloader(config: Config):
             suboods = {}
             for dataset_name in split_config.datasets:
                 if dataset_name == 'padding':
-                    suboods[dataset_name] = padding_set
+                    subset_seed = config.pipeline.seed
+                    subset_indices = torch.randperm(len(padding_set),
+                                                    generator=torch.Generator().manual_seed(subset_seed))
+                    suboods[dataset_name] = Subset(padding_set, subset_indices[:len(ind_val_dataset)])
+
                 else:
                     dataset_config = split_config[dataset_name]
                     suboods[dataset_name] = CustomDataset(name=name,
