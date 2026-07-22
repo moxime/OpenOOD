@@ -346,7 +346,7 @@ if __name__ == '__main__':
 
     print(ind_ood_set)
 
-    #  sys.exit()
+    sys.exit()
 
     def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True, dtype='dict'):
 
