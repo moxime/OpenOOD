@@ -244,6 +244,8 @@ class IDOODDataset(MixtureDataset):
         if gt == 'ood':
             label = self._ood_idx[sub]
 
+        print('***', labels, label)
+
         if isinstance(sample, dict):
             sample['label'] = label
         else:
