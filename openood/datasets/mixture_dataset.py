@@ -233,7 +233,7 @@ class IDOODDataset(MixtureDataset):
 
         sample = super().__getitem__(i)
 
-        print('***', type(sample))
+        print('***', type(sample), sample['label'])
 
         gt, sub, label = sample['label'] if isinstance(sample, dict) else sample[1]
 
