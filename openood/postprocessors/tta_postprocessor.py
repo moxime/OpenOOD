@@ -198,6 +198,7 @@ class TTAPostprocessor(BasePostprocessor):
             t = np.quantile(outputs[1][self.switch_phase], 0.1)
             self.recorder.event('self_threshold', '{:.4g}'.format(t))
             self.pad_thresholds['self'] = t
+            self.pad_buffers['self'].threshold = t
 
             return outputs
 
