@@ -44,7 +44,6 @@ class TTAOODEvaluator(OODEvaluator):
         if self.config.postprocessor.APS_mode:
             raise NotImplementedError
 
-        print('***** dls:', *id_ood_aux_data_loaders)
         splits = ('mixture',) if self.ood_period else ('nearood', 'farood')
 
         for ood_split in [_ for _ in splits if _ in id_ood_aux_data_loaders]:
