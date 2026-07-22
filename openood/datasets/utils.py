@@ -174,7 +174,7 @@ def get_tta_ood_dataloader(config: Config):
                                                           num_classes=ood_config.num_classes,
                                                           preprocessor=preprocessor,
                                                           data_aux_preprocessor=data_aux_preprocessor)
-            dataset = IODataset(**suboods, ind=ind_dataset)
+            dataset = IODataset(**suboods, ind=ind_val_dataset)
             dataloader = DataLoader(dataset,
                                     batch_size=chunk_size,
                                     num_workers=ood_config.num_workers,
