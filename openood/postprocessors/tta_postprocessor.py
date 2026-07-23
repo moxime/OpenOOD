@@ -385,7 +385,7 @@ class TTAPostprocessor(BasePostprocessor):
                 Important: we keep pred calculated prior to the FT
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
-                    self.recorder.event('calculate_conf', pred='estimated' if pred is None
+                    self.recorder.event('calculate_conf', epoch=epoch, pred='estimated' if pred is None
                                         else ' '.join(map('{}'.format, pred[:10])))
                     pred, conf = self.postprocess(net, data, pred=pred)
                     self.recorder.event('calculate_conf', mean='{:.3g}'.format(conf.mean()))
