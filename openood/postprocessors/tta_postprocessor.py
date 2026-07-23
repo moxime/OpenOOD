@@ -385,9 +385,10 @@ class TTAPostprocessor(BasePostprocessor):
                 Important: we keep pred calculated prior to the FT
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
-                    self.recorder.event('calculate_conf', pred=None if pred is None
+                    self.recorder.event('calculate_conf', pred='estimated' if pred is None
                                         else ' '.join(map('{}'.format, pred[:10])))
                     pred, conf = self.postprocess(net, data, pred=pred)
+                    self.recorder.event('calculate_conf', mean='{:.3g}'.format(conf.mean()))
                     for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                         outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 
