@@ -100,11 +100,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
     def calculate_conf(self, epoch=0, epochs=0):
 
         partial_ = self.config.pipeline.partial
-        if partial_ > 0. and partial_ <= 0.05:
-            return epoch <= self.switch_phase or epoch == epochs
-
-        if self.in_setup_thr_on_val and partial_ < 0:
-            return epoch <= self.switch_phase or epoch == epochs
+        if partial_ <= 0.05:
+            return self.phase == 'gas' or epoch == epochs
 
         return epoch in (0, self.switch_phase, epochs)
 
