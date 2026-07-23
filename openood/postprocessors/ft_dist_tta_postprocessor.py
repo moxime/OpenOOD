@@ -111,7 +111,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
-        if epoch in (0, self.switch_phase):  # and not self.in_setup_thr_on_val:
+        if epoch in (0, self.switch_phase) and not self.in_setup_thr_on_val:
             self.reload_network(net)
 
         self.phase = 'liquid'
