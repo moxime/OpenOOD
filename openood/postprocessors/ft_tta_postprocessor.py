@@ -183,7 +183,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
             loss.backward()
 
             grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
-            self.recorder.event('grad_norm', '{}-{} {:.3g}'.format(epoch, i, grad_norm))
+            self.recorder.event('grad_norm', '{}-{} {:.3g}'.format(epoch, i, grad_norm),
+                                loss='{:.3g}'.format(loss))
             if grad_norm > 200:
                 self._clipped_grad += 1
             self._grad += 1
