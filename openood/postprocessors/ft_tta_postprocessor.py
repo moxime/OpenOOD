@@ -183,6 +183,11 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             loss.backward()
 
+            n_grad = 0
+            for p in net.parameters():
+                if p.grad is not None:
+                    n_grad += 1
+            print('*** {} grads'.format(n_grad))
             grad_norm_i = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
             grad_norm += grad_norm_i
             self.recorder.event('grad_norm_i', '{}-{} {:.3g}'.format(epoch, i, grad_norm_i),
