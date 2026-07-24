@@ -173,7 +173,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     w = self.beta
                     stratified_loss = self.adaptation_loss(logits, features, net)
                 elif _ == 'id':
-                    w = 0
+                    w = 1.
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
