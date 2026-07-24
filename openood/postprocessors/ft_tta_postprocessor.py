@@ -127,6 +127,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._clipped_grad = 0
             self._grad = 0
 
+        grad_norm = 0.
         for i, batch in enumerate(minibatch_loader):
 
             data = batch['data'].cuda()
@@ -182,12 +183,15 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
-            self.recorder.event('grad_norm', '{}-{} {:.3g}'.format(epoch, i, grad_norm),
+            grad_norm_i = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
+            grad_norm += grad_norm_i
+            self.recorder.event('grad_norm_i', '{}-{} {:.3g}'.format(epoch, i, grad_norm_i),
                                 loss='{:.3g}'.format(loss))
             if grad_norm > 200:
                 self._clipped_grad += 1
             self._grad += 1
             self.optimizer.step()
+
+        self.recorder.event('grad_norm', '{}: {:.3g}'.format(epoch, grad_norm))
 
         self.recorder.ft_epoch('end', epoch, epochs)
