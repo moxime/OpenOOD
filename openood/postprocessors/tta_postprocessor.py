@@ -296,7 +296,7 @@ class TTAPostprocessor(BasePostprocessor):
 
     @classmethod
     def _finetune_mode(cls, net, finetune=True):
-
+        print('************************')
         if isinstance(net, dict):
             for subnet in net.values():
                 cls._finetune_mode(subnet, finetune=finetune)
@@ -304,8 +304,10 @@ class TTAPostprocessor(BasePostprocessor):
         return
         for module in net.modules():
             if isinstance(module, (torch.nn.BatchNorm2d, torch.nn.BatchNorm1d)):
+                print('********* BN')
                 module.eval()
             else:
+                print('********* not BN')
                 module.train(finetune)
 
     @contextmanager
