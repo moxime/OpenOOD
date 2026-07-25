@@ -1,4 +1,4 @@
-ood_dataset:
+$ood_dataset:
   name: cifar100_ood
   num_classes: 100
 
@@ -35,11 +35,13 @@ ood_dataset:
 
   split_names: [val, nearood, farood, mixture]
 
-  val:
-    data_dir: ./data/images_classic/
-    imglist_pth: ./data/benchmark_imglist/cifar100/val_tin.txt
+   val:
+    datasets: ['padding']
+
+    val_tin:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar10/val_tin.txt
       
-    
   nearood:
     datasets: [cifar10, tin]
 
