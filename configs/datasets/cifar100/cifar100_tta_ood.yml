@@ -35,7 +35,7 @@ $ood_dataset:
 
   split_names: [val, nearood, farood, mixture]
 
-   val:
+  val:
     datasets: ['padding']
 
     val_tin:
