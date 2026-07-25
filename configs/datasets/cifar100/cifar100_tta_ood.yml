@@ -1,4 +1,4 @@
-$ood_dataset:
+ood_dataset:
   name: cifar100_ood
   num_classes: 100
 
