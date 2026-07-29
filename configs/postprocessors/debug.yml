@@ -1,2 +1,3 @@
-postprocessor:
-  debug: True
+recorder:
+  events:
+    print: True

@@ -44,31 +44,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
         if self.mu_ood:
             if self.mu_ood == 'zero':
                 self.mu_ood = torch.zeros_like(net.get_fc_layer().weight[0])
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        """stats on id val set"""
-        if False:
-            debug = self.debug
-            # self.debug = 0
-            # output : pred[conf], conf[epoch], label[epoch]
-            t = self.pad_thresholds['self']
-            self.pad_thresholds['self'] = -np.inf
-            outputs = self.inference(net, id_loader_dict['val'], epochs=self.epochs)
-            for epoch in outputs[0]:
-                pred, conf, label = (_[epoch] for _ in outputs)
-                q = [0.1, 0.5, 0.9]
-                quantiles = {_: np.quantile(conf, _) for _ in q}
-                self_prop = (conf < t).mean()
-                print('*** val q {}/{} [{}]'.format(epoch, self.epochs, len(conf)),
-                      ' '.join('{}:{:.3f}'.format(*i) for i in quantiles.items()),
-                      '{:.1%} < {}'.format(self_prop, t))
-            self.debug = debug
-            self.pad_thresholds['self'] = t
+        return super().setup(net, id_loader_dict, id_ood_loader_dict)
 
     def reset(self, *a, **kw):
 
@@ -117,18 +99,23 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
+        partial_ = self.config.pipeline.partial
+        if partial_ <= 0.05:
+            return epoch <= self.switch_phase or epoch == epochs
+
         return epoch in (0, self.switch_phase, epochs)
 
     def init_epoch(self, net, data, conf, pred, epoch=0, epochs=0):
 
         super().init_epoch(net, data, conf, pred, epoch=epoch, epochs=epochs)
 
-        if epoch in (0, self.switch_phase):
+        if epoch in (0, self.switch_phase) and not self.in_setup_thr_on_val:
             self.reload_network(net)
 
         self.phase = 'liquid'
         if epoch < self.switch_phase:
             self.phase = 'gas'
+        self.recorder.event('phase', self.phase, epoch=epoch)
 
         if not epoch and self.ft_checkpoint:
             try:
@@ -143,6 +130,12 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         if self.ft_checkpoint_loaded and self.phase == 'gas':
             self.phase = 'solid'
+            self.recorder.event('phase', 'solid (gas -> solid)')
+            return
+
+        if self.phase == 'liquid' and self.in_setup_thr_on_val:
+            self.phase = 'solid'
+            self.recorder.event('phase', 'solid (liquid -> solid in setup)')
             return
 
         if not self.max_iterations:
@@ -159,9 +152,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         epochs_per_phase = self.iterations_per_phase / it_per_epoch
 
         if self.phase == 'gas' and epoch >= epochs_per_phase:
+            self.recorder.event('phase', 'solid (gas -> solid max iter)')
             self.phase = 'solid'
 
         if self.phase == 'liquid' and (epoch - self.switch_phase) >= epochs_per_phase:
+            self.recorder.event('phase', 'solid (liquid -> solid max iter)')
             self.phase = 'solid'
 
     @torch.no_grad()

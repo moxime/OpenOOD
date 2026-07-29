@@ -233,7 +233,13 @@ class IDOODDataset(MixtureDataset):
 
         sample = super().__getitem__(i)
 
-        gt, sub, label = sample['label'] if isinstance(sample, dict) else sample[1]
+        # labels is gt, sub, [<sub/sub>,] label
+        labels = sample['label'] if isinstance(sample, dict) else sample[1]
+
+        gt = labels[0]
+        sub = labels[1]
+
+        label = labels[-1]
 
         if gt == 'ood':
             label = self._ood_idx[sub]
@@ -346,7 +352,7 @@ if __name__ == '__main__':
 
     print(ind_ood_set)
 
-    #  sys.exit()
+    sys.exit()
 
     def test_mixture(K=4, N=10000, period=1e5, batch_size=50, fig=True, dtype='dict'):
 

@@ -136,11 +136,13 @@ class TTAPostprocessor(BasePostprocessor):
         if self_threshold is not None:
             self.pad_thresholds['self'] = self_threshold
 
-        self.debug = config.debug
+        self.partial = self.config.pipeline.partial
 
         self.ood_ratio = config.pipeline.ood_ratio
 
         self.recorder = get_recorder(config)
+
+        self.aux_dls = {}
 
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         """setup is done once (for instance, get some metrics on the
@@ -149,13 +151,15 @@ class TTAPostprocessor(BasePostprocessor):
         """
 
         aux_dls = id_ood_loader_dict['aux']
-        self.aux_dls = {_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes}
+        self.aux_dls.update({_: aux_dls[_] for _ in aux_dls if _ in self.pad_sizes})
+
         self.pad_buffers = {_: PadBuffer(self.pad_sizes[_], self.pad_thresholds[_], postprocessor=self)
                             for _ in self.pad_sizes}
 
         def _unfold(name, dl):
             if isinstance(dl, DataLoader):
-                self.recorder.event('dl', name, set='\n'+str(dl.dataset))
+                self.recorder.event('dl', name, '[{}x{}]'.format(len(dl), dl.batch_size),
+                                    set='\n'+str(dl.dataset))
                 return
             if not isinstance(dl, dict):
                 return
@@ -164,6 +168,39 @@ class TTAPostprocessor(BasePostprocessor):
 
         _unfold('id', id_loader_dict)
         _unfold('id_ood', id_ood_loader_dict)
+
+        self.in_setup_thr_on_val = False
+        """stats on id val set"""
+        if np.isnan(self.pad_thresholds['self']):
+
+            restore_attr = {attr: getattr(self, attr)
+                            for attr in ('partial', 'ft_checkpoint', 'in_setup_thr_on_val')}
+            self.ft_checkpoint = None
+            self.partial = 0.
+            self.in_setup_thr_on_val = True
+            # output : pred[epoch], conf[epoch], label[epoch]
+            t = self.pad_thresholds['self']
+            self.pad_thresholds['self'] = -np.inf
+            outputs = self.inference(net, id_ood_loader_dict['val'], epochs=self.epochs)
+            for epoch in outputs[0]:
+                pred, conf, label = (_[epoch] for _ in outputs)
+                q = [0.1, 0.5, 0.9]
+                mean = conf.mean()
+                std = conf.std()
+                skew = (((conf - mean) / std) ** 3).mean()
+                quantiles = {_: np.quantile(conf, _) for _ in q}
+                self.recorder.event('val_stats', '{}/{} [{}]'.format(epoch, self.epochs, len(conf)),
+                                    quantiles=' '.join('{}:{:.2f}'.format(*i) for i in quantiles.items()),
+                                    moments='mean: {:.2f} std: {:.2f} skew: {:.2f}'.format(skew, std, skew))
+
+            for attr, val in restore_attr.items():
+                setattr(self, attr, val)
+            t = np.quantile(outputs[1][self.switch_phase], 0.1)
+            self.recorder.event('self_threshold', '{:.4g}'.format(t))
+            self.pad_thresholds['self'] = t
+            self.pad_buffers['self'].threshold = t
+
+            return outputs
 
     def reload_network(self, net):
         net.load_state_dict(torch.load(self.checkpoint))
@@ -259,12 +296,11 @@ class TTAPostprocessor(BasePostprocessor):
 
     @classmethod
     def _finetune_mode(cls, net, finetune=True):
-
         if isinstance(net, dict):
             for subnet in net.values():
                 cls._finetune_mode(subnet, finetune=finetune)
 
-        return
+            return
         for module in net.modules():
             if isinstance(module, (torch.nn.BatchNorm2d, torch.nn.BatchNorm1d)):
                 module.eval()
@@ -328,7 +364,9 @@ class TTAPostprocessor(BasePostprocessor):
         num_chunk = 0
         delta_self_pad = '--'
         for chunk in progress_bar:
-            if (num_chunk > self.debug * len(data_loader)) and self.debug:
+            if self.partial < 0:
+                break
+            if (num_chunk > self.partial * len(data_loader)) and self.partial:
                 break
             num_chunk += 1
             data = chunk['data'].cuda()
@@ -346,8 +384,10 @@ class TTAPostprocessor(BasePostprocessor):
                 Important: we keep pred calculated prior to the FT
                 """
                 if self.calculate_conf(epoch=epoch, epochs=epochs):
-                    self.recorder.event('calculate_conf', pred_is_none=pred is None)
+                    self.recorder.event('calculate_conf', epoch=epoch, pred='estimated' if pred is None
+                                        else ' '.join(map('{}'.format, pred[:10])))
                     pred, conf = self.postprocess(net, data, pred=pred)
+                    self.recorder.event('calculate_conf', mean='{:.3g}'.format(conf.mean()))
                     for key, tensor in zip(('pred', 'conf', 'label'), (pred, conf, label)):
                         outputs_by_epochs[key].setdefault(epoch, []).append(tensor.cpu())
 

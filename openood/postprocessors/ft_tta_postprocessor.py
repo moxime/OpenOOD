@@ -37,7 +37,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
         if self.setup_flag:
             return
-        super().setup(net, id_loader_dict, id_ood_loader_dict)
 
         for _ in self.stratified:
             self.aux_dls[_] = id_ood_loader_dict['aux'][_]
@@ -64,6 +63,8 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
+        return super().setup(net, id_loader_dict, id_ood_loader_dict)
+
     def adaptation_loss(self, logits, features, net):
 
         return uniform_ce(logits)
@@ -79,12 +80,6 @@ class FTTTAPostprocessor(TTAPostprocessor):
             return (1., 0.)
 
         return (0., self.beta)
-
-    def inspect_minibatch(self, epoch=0, epochs=0, flush=False, **kw):
-        """
-        implement this methd in child class for debug purpose
-        """
-        pass
 
     def finetune(self, net, data, conf, pred, epoch=0, epochs=0):
         """finetune is done  _epochs_ times
@@ -132,6 +127,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
             self._clipped_grad = 0
             self._grad = 0
 
+        grad_norm = 0.
         for i, batch in enumerate(minibatch_loader):
 
             data = batch['data'].cuda()
@@ -178,7 +174,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                     w = self.beta
                     stratified_loss = self.adaptation_loss(logits, features, net)
                 elif _ == 'id':
-                    w = 1
+                    w = 1.
                     pred = batch_['label'].cuda()
                     stratified_loss = self.loss(logits, pred)
 
@@ -187,10 +183,19 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
             loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
+            n_grad = 0
+            for p in net.parameters():
+                if p.grad is not None:
+                    n_grad += 1
+            grad_norm_i = torch.nn.utils.clip_grad_norm_(net.parameters(), 200)
+            grad_norm += grad_norm_i
+            self.recorder.event('grad_norm_i', '{}-{} {:.3g}'.format(epoch, i, grad_norm_i),
+                                loss='{:.3g}'.format(loss))
             if grad_norm > 200:
                 self._clipped_grad += 1
             self._grad += 1
             self.optimizer.step()
+
+        self.recorder.event('grad_norm', '{}: {:.3g}'.format(epoch, grad_norm))
 
         self.recorder.ft_epoch('end', epoch, epochs)
