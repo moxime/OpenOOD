@@ -75,8 +75,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                 conf = {_: confs[epoch][idx[_]] for _ in idx}
 
                 if criteria == 'fisher':
-                    metrics[epoch]   = (c['id'].mean() - c['ood'].mean())**2
-                    metrics[epoch] /= (c['id'].var() + c['ood'].var())
+                    metrics[epoch] = (conf['id'].mean() - conf['ood'].mean())**2
+                    metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
                     continue
 
             self.iterations_per_phase = max(metrics, key=metrics.get)
