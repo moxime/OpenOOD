@@ -80,6 +80,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     continue
 
             self.iterations_per_phase = max(metrics, key=metrics.get)
+        print('****', self.iterations_per_phase)
 
         if inference_on_val_threshold:
             t = np.quantile(outputs[1][self.switch_phase], 0.1)
