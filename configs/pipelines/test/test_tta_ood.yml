@@ -44,7 +44,7 @@ postprocessor:
     id: -1.
     ood: 0.5
     self: 1.
-    threshold:  # put x in pad_self if conf <= threshold, no value will be -inf
+    threshold:  # put x in pad_self if conf <= threshold, if no value will be set on setup
   ft: # defaults value for ft
     epochs: 0
     lr: 2.0e-3
