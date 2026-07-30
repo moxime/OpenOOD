@@ -79,7 +79,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
                     continue
 
-            self.iterations_per_phase = self.min_it_per_epoch * max(metrics, key=metrics.get)
+            self.iterations_per_phase = int(self.min_it_per_epoch * max(metrics, key=metrics.get))
         print('****', self.iterations_per_phase)
 
         if inference_on_val_threshold:
