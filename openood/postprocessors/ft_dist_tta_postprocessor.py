@@ -82,7 +82,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
             stop_epoch = max(metrics, key=metrics.get)
             self.iterations_per_phase = int(self.min_it_per_epoch * stop_epoch)
-        print('****', self.iterations_per_phase)
+            self.recorder.event('max_fisher', '{:.4g} @ [{}]'.format(metrics[stop_epoch], stop_epoch))
 
         if inference_on_val_threshold:
             t = np.quantile(outputs[1][stop_epoch], 0.1)
