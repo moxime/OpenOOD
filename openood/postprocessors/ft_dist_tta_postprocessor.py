@@ -67,6 +67,9 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             metrics = {}
             for epoch in preds:
 
+                if epoch > self.switch_phase:
+                    break
+
                 label = labels[epoch]
                 idx = {'id': label >= 0, 'out': label < 0}
                 conf = {_: confs[epoch][idx[_]] for _ in idx}
