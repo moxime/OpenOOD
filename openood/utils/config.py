@@ -1,7 +1,7 @@
 import argparse
 import os
 import re
-
+import time
 import yaml
 
 
@@ -62,6 +62,8 @@ def setup_config(config_process_order=('merge', 'parse_args', 'parse_refs')):
 
     # manually modify 'output_dir'
     config.output_dir = os.path.join(config.output_dir, config.exp_name)
+
+    config.creation_date = time.time()
 
     return config
 
