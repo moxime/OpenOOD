@@ -10,4 +10,4 @@ postprocessor:
   postprocessor_args:
     mu_ood: zero
     gasless: True
-    max_iteration: max_fisher
+    stop_iteration: max_fisher
