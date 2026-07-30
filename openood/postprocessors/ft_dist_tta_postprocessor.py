@@ -57,6 +57,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
 
+        stop_epoch = self.switch_phase
         if inference_on_val_iterations:
 
             criteria = self.stop_iteration.split('_')[1]
@@ -79,12 +80,13 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
                     continue
 
-            self.iterations_per_phase = int(self.min_it_per_epoch * max(metrics, key=metrics.get))
+            stop_epoch = max(metrics, key=metrics.get)
+            self.iterations_per_phase = int(self.min_it_per_epoch * stop_epoch)
         print('****', self.iterations_per_phase)
 
         if inference_on_val_threshold:
-            t = np.quantile(outputs[1][self.switch_phase], 0.1)
-            self.recorder.event('self_threshold', '{:.4g}'.format(t))
+            t = np.quantile(outputs[1][stop_epoch], 0.1)
+            self.recorder.event('self_threshold', '{:.4g} @ [{}]'.format(t, stop_epoch))
             self.pad_thresholds['self'] = t
             self.pad_buffers['self'].threshold = t
 
