@@ -34,14 +34,6 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         print('*** mu_ood', self.mu_ood, 'iter/phase {} {}'.format('=' if self.stop_iteration else '>=',
                                                                    self.iterations_per_phase))
 
-        config_save_path = os.path.join(config.output_dir, 'config.yml')
-        with open(config_save_path, 'w') as f:
-            yaml.dump(config,
-                      f,
-                      default_flow_style=False,
-                      sort_keys=False,
-                      indent=2)
-
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
         if self.mu_ood:
@@ -82,6 +74,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
             stop_epoch = max(metrics, key=metrics.get)
             self.iterations_per_phase = int(self.min_it_per_epoch * stop_epoch)
+            self.ft_args.iterations_per_phase = self.iterations_per_phase
             self.recorder.event('max_fisher', '{:.4g} @ [{}]'.format(metrics[stop_epoch], stop_epoch))
 
         if inference_on_val_threshold:
@@ -89,6 +82,14 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             self.recorder.event('self_threshold', '{:.4g} @ [{}]'.format(t, stop_epoch))
             self.pad_thresholds['self'] = t
             self.pad_buffers['self'].threshold = t
+
+        config_save_path = os.path.join(self.config.output_dir, 'config.yml')
+        with open(config_save_path, 'w') as f:
+            yaml.dump(self.config,
+                      f,
+                      default_flow_style=False,
+                      sort_keys=False,
+                      indent=2)
 
     def reset(self, *a, **kw):
 
