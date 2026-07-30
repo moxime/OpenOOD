@@ -24,8 +24,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         # number of iterations per phase when no self padding
         min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
-        min_it_per_epoch = min_padded_size / self.batch_size
-        self.iterations_per_phase = int(min_it_per_epoch * self.switch_phase)
+        self.min_it_per_epoch = min_padded_size / self.batch_size
+        self.iterations_per_phase = int(self.min_it_per_epoch * self.switch_phase)
         self.stop_iteration = self.args.stop_iteration
         self.ft_args.iterations_per_phase = self.iterations_per_phase
         if self.stop_iteration:
@@ -71,7 +71,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     break
 
                 label = labels[epoch]
-                idx = {'id': label >= 0, 'out': label < 0}
+                idx = {'id': label >= 0, 'ood': label < 0}
                 conf = {_: confs[epoch][idx[_]] for _ in idx}
 
                 if criteria == 'fisher':
@@ -79,7 +79,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
                     continue
 
-            self.iterations_per_phase = max(metrics, key=metrics.get)
+            self.iterations_per_phase = self.min_it_per_epoch * max(metrics, key=metrics.get)
         print('****', self.iterations_per_phase)
 
         if inference_on_val_threshold:
