@@ -34,7 +34,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         print(f"*** params lr={self.lr} beta={self.beta} self thr={self.pad_thresholds['self']}")
 
-    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict, **kw):
         if self.setup_flag:
             return
 
@@ -63,7 +63,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
                 if name.lower().startswith('layer') and unfreeze == 'penultimate':
                     break
 
-        return super().setup(net, id_loader_dict, id_ood_loader_dict)
+        return super().setup(net, id_loader_dict, id_ood_loader_dict, **kw)
 
     def adaptation_loss(self, logits, features, net):
 

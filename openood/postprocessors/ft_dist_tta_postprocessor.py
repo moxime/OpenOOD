@@ -24,23 +24,15 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         # number of iterations per phase when no self padding
         min_padded_size = self.chunk_size + sum(self.pad_sizes.values()) - self.pad_sizes.get('self', 0)
-        min_it_per_epoch = min_padded_size / self.batch_size
-        self.iterations_per_phase = int(min_it_per_epoch * self.switch_phase)
-        self.max_iterations = self.args.max_iterations_per_phase
+        self.min_it_per_epoch = min_padded_size / self.batch_size
+        self.iterations_per_phase = int(self.min_it_per_epoch * self.switch_phase)
+        self.stop_iteration = self.args.stop_iteration
         self.ft_args.iterations_per_phase = self.iterations_per_phase
-        if self.max_iterations:
+        if self.stop_iteration:
             assert not self.pad_sizes.get('id', 0)
 
-        print('*** mu_ood', self.mu_ood, 'iter/phase {} {}'.format('=' if self.max_iterations else '>=',
+        print('*** mu_ood', self.mu_ood, 'iter/phase {} {}'.format('=' if self.stop_iteration else '>=',
                                                                    self.iterations_per_phase))
-
-        config_save_path = os.path.join(config.output_dir, 'config.yml')
-        with open(config_save_path, 'w') as f:
-            yaml.dump(config,
-                      f,
-                      default_flow_style=False,
-                      sort_keys=False,
-                      indent=2)
 
     def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
 
@@ -50,7 +42,56 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             else:
                 self.mu_ood = net.get_fc_layer().weight.detach().mean(0)
 
-        return super().setup(net, id_loader_dict, id_ood_loader_dict)
+        inference_on_val_threshold = np.isnan(self.pad_thresholds['self'])
+        inference_on_val_iterations = self.stop_iteration and self.stop_iteration.startswith('max')
+
+        inference_on_val = inference_on_val_threshold or inference_on_val_iterations
+
+        outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
+
+        stop_epoch = self.switch_phase
+        if inference_on_val_iterations:
+
+            criteria = self.stop_iteration.split('_')[1]
+            assert criteria == 'fisher', '{} criteria not implemented'.format(criteria)
+            # outputs is (pred[epoch], conf[epoh], label[epoch])
+            preds, confs, labels = outputs
+
+            metrics = {}
+            for epoch in preds:
+
+                if epoch > self.switch_phase:
+                    break
+
+                label = labels[epoch]
+                idx = {'id': label >= 0, 'ood': label < 0}
+                conf = {_: confs[epoch][idx[_]] for _ in idx}
+
+                if criteria == 'fisher':
+                    metrics[epoch] = (conf['id'].mean() - conf['ood'].mean())**2
+                    metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
+                    continue
+
+            stop_epoch = max(metrics, key=metrics.get)
+            self.iterations_per_phase = int(self.min_it_per_epoch * stop_epoch)
+            self.ft_args.iterations_per_phase = self.iterations_per_phase
+            self.recorder.event('max_fisher', '{:.4g} @ [{}]'.format(metrics[stop_epoch], stop_epoch))
+
+        if inference_on_val_threshold:
+            t = np.quantile(outputs[1][stop_epoch], 0.1)
+            self.recorder.event('self_threshold', '{:.4g} @ [{}]'.format(t, stop_epoch))
+            self.pad_thresholds['self'] = t
+            self.pad_buffers['self'].threshold = t
+
+        config_save_path = os.path.join(self.config.output_dir, 'config.yml')
+        with open(config_save_path, 'w') as f:
+            yaml.dump(self.config,
+                      f,
+                      default_flow_style=False,
+                      sort_keys=False,
+                      indent=2)
+
+        return outputs
 
     def reset(self, *a, **kw):
 
@@ -99,8 +140,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def calculate_conf(self, epoch=0, epochs=0):
 
-        partial_ = self.config.pipeline.partial
-        if partial_ <= 0.05:
+        if self.in_setup_thr_on_val:
             return epoch <= self.switch_phase or epoch == epochs
 
         return epoch in (0, self.switch_phase, epochs)
@@ -138,7 +178,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             self.recorder.event('phase', 'solid (liquid -> solid in setup)')
             return
 
-        if not self.max_iterations:
+        if not self.stop_iteration:
             return
 
         padded_mix_size = sum(len(self.pad_buffers[_]) for _ in self.pad_buffers)

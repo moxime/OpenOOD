@@ -144,7 +144,7 @@ class TTAPostprocessor(BasePostprocessor):
 
         self.aux_dls = {}
 
-    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict):
+    def setup(self, net: nn.Module, id_loader_dict, id_ood_loader_dict, inference_on_val=True):
         """setup is done once (for instance, get some metrics on the
         training id dataset
 
@@ -170,9 +170,9 @@ class TTAPostprocessor(BasePostprocessor):
         _unfold('id_ood', id_ood_loader_dict)
 
         self.in_setup_thr_on_val = False
-        """stats on id val set"""
-        if np.isnan(self.pad_thresholds['self']):
 
+        """stats on id val set"""
+        if inference_on_val:
             restore_attr = {attr: getattr(self, attr)
                             for attr in ('partial', 'ft_checkpoint', 'in_setup_thr_on_val')}
             self.ft_checkpoint = None
@@ -195,11 +195,7 @@ class TTAPostprocessor(BasePostprocessor):
 
             for attr, val in restore_attr.items():
                 setattr(self, attr, val)
-            t = np.quantile(outputs[1][self.switch_phase], 0.1)
-            self.recorder.event('self_threshold', '{:.4g}'.format(t))
             self.pad_thresholds['self'] = t
-            self.pad_buffers['self'].threshold = t
-
             return outputs
 
     def reload_network(self, net):

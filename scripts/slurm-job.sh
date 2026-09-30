@@ -111,7 +111,7 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
    configs/pipelines/test/test_tta_ood.yml \
    $ckpt > /dev/stdout
 
-echo "$@" > /dev/stdout
+echo [$dataset $network $method"] $@" > /dev/stdout
 
 git_branch=$(git rev-parse --abbrev-ref HEAD)
 python main.py --config configs/datasets/$dataset/$dataset.yml \

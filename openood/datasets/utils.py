@@ -178,7 +178,7 @@ def get_tta_ood_dataloader(config: Config):
             dataloader = DataLoader(dataset,
                                     batch_size=chunk_size,
                                     num_workers=ood_config.num_workers,
-                                    sampler=IOSampler(dataset))
+                                    sampler=IOSampler(dataset, ood_ratio=0.1, ood_period=1.))
 
             dataloader_dict[split] = dataloader
             continue

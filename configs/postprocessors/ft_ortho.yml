@@ -8,4 +8,4 @@ postprocessor:
     beta: 1.
   postprocessor_args:
     gasless: True
-    max_iterations_per_phase: True
+    stop_iteration: max_fisher
