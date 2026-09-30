@@ -53,7 +53,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         if inference_on_val_iterations:
 
             criteria = self.stop_iteration.split('_')[1]
-            assert criteria == 'fisher', '{} criteria not implemented'.format(criteria)
+            func_min_max = {'max': max, 'min': min}[self.stop_iteration.split('_')[0]]
+            assert criteria in ('fisher', 'fpr95'), '{} criteria not implemented'.format(criteria)
             # outputs is (pred[epoch], conf[epoh], label[epoch])
             preds, confs, labels = outputs
 
@@ -72,7 +73,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
                     metrics[epoch] /= (conf['id'].var() + conf['ood'].var())
                     continue
 
-            stop_epoch = max(metrics, key=metrics.get)
+                if criteria == 'fpr95':
+                    t_95 = np.quantile(conf['id'], 0.05)
+                    metrics[epoch] = (conf['ood'] > t_95).mean()
+
+            stop_epoch = func_min_max(metrics, key=metrics.get)
             self.iterations_per_phase = int(self.min_it_per_epoch * stop_epoch)
             self.ft_args.iterations_per_phase = self.iterations_per_phase
             self.recorder.event('max_fisher', '{:.4g} @ [{}]'.format(metrics[stop_epoch], stop_epoch))
