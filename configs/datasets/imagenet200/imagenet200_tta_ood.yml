@@ -60,3 +60,10 @@ ood_dataset:
     openimageo:
       data_dir: ./data/images_largescale/
       imglist_pth: ./data/benchmark_imglist/imagenet/test_openimage_o.txt
+
+  mixture:
+    datasets: [whole_mix]
+
+    whole_mix:
+      sets: [ssb_hard, ninco, inaturalist, textures, openimageo]
+
