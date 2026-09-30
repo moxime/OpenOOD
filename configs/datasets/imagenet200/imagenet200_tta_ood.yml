@@ -30,7 +30,7 @@ ood_dataset:
   pre_size: 256
   image_size: 224
 
-  split_names: [val, nearood, farood, mixtures]
+  split_names: [val, nearood, farood, mixture]
 
   val:
     datasets: ['padding']
