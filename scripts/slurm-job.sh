@@ -111,8 +111,12 @@ ls -1 configs/datasets/$dataset/$dataset.yml \
    configs/pipelines/test/test_tta_ood.yml \
    $ckpt > /dev/stdout
 
-echo [$dataset $network $method"] $@" > /dev/stdout
+echo "[$dataset $network $method] $@" > /dev/stdout
 
+mkdir -p "results/$USER/$git_branch/"
+      
+echo job "$SLURM_JOB_ID [$dataset $network $method] $@" >> results/$USER/$git_branch/launched_jobs
+      
 git_branch=$(git rev-parse --abbrev-ref HEAD)
 python main.py --config configs/datasets/$dataset/$dataset.yml \
        configs/networks/$network.yml \
