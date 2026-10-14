@@ -83,7 +83,11 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
             self.recorder.event('max_fisher', '{:.4g} @ [{}]'.format(metrics[stop_epoch], stop_epoch))
 
         if inference_on_val_threshold:
-            t = np.quantile(outputs[1][stop_epoch], 0.1)
+            epoch = stop_epoch
+            label = labels[epoch]
+            idx = {'id': label >= 0, 'ood': label < 0}
+            conf = {_: confs[epoch][idx[_]] for _ in idx}
+            t = np.quantile(conf['id'], 0.05)
             self.recorder.event('self_threshold', '{:.4g} @ [{}]'.format(t, stop_epoch))
             self.pad_thresholds['self'] = t
             self.pad_buffers['self'].threshold = t
