@@ -101,7 +101,7 @@ class TTAOODEvaluator(OODEvaluator):
             for dataset_name, id_ood_dl in ood_data_loader.items():
                 for sub_ood_idx, sub_ood in id_ood_dl.dataset.sub_ood.items():
                     index.append((epoch, sub_ood))
-                if len(id_ood_dl.dataset.sub_ood) > 1:
+                if len(id_ood_dl.dataset.sub_ood) > 1 or True:  # <- to be verified
                     index.append((epoch, dataset_name))
 
         index = pd.MultiIndex.from_tuples(index, names=('epoch', 'dataset'))
