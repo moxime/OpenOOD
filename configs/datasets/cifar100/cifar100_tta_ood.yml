@@ -55,7 +55,7 @@ ood_dataset:
 
 
   farood:
-    datasets: [mnist, svhn, texture, places365]
+    datasets: [mnist, svhn, texture, places365, patched_id]
 
     mnist:
       data_dir: ./data/images_classic/
@@ -73,6 +73,19 @@ ood_dataset:
       data_dir: ./data/images_classic/
       imglist_pth: ./data/benchmark_imglist/cifar100/test_places365.txt
 
+    patched_id:
+      data_dir: ./data/images_classic/
+      imglist_pth: ./data/benchmark_imglist/cifar100/train_cifar100.txt
+      preprocessor:
+        name: patch
+        preprocessor_args:
+          - patch
+          - cutout
+          - mixup
+          - noise
+          - blur
+          - geometric
+
       
   mixture:
     datasets: [cifar10_mix, tin_mix]
@@ -85,3 +98,7 @@ ood_dataset:
 
     old_mix:
       sets: [tin, svhn, places365, texture]
+
+    debug_mix:
+      sets: [patched_id]
+    
