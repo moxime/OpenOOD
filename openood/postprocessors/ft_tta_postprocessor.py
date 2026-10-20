@@ -43,6 +43,7 @@ class FTTTAPostprocessor(TTAPostprocessor):
 
         self.loss = MarginCrossEntropy(margin=self.config.network.margin, reduction='none')
         self.optimizer = torch.optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.wd)
+        self.recorder.event('optim', str(self.optimizer))
 
         self.setup_flag = True
 

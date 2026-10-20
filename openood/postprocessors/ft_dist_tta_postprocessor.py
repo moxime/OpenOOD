@@ -50,6 +50,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
         outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
 
         stop_epoch = self.switch_phase
+
         if inference_on_val_iterations:
 
             criteria = self.stop_iteration.split('_')[1]
