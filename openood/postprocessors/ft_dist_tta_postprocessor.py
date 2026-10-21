@@ -51,7 +51,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         stop_epoch = self.switch_phase
 
-        if inference_on_val_iterations:
+        if inference_on_val:
 
             criteria = self.stop_iteration.split('_')[1]
             func_min_max = {'max': max, 'min': min}[self.stop_iteration.split('_')[0]]
