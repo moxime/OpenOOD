@@ -47,17 +47,18 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         inference_on_val = inference_on_val_threshold or inference_on_val_iterations
 
-        outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
+        if inference_on_val:
+            outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
+            preds, confs, labels = outputs
 
         stop_epoch = self.switch_phase
 
-        if inference_on_val:
+        if inference_on_val_iterations:
 
             criteria = self.stop_iteration.split('_')[1]
             func_min_max = {'max': max, 'min': min}[self.stop_iteration.split('_')[0]]
             assert criteria in ('fisher', 'fpr95'), '{} criteria not implemented'.format(criteria)
             # outputs is (pred[epoch], conf[epoh], label[epoch])
-            preds, confs, labels = outputs
 
             metrics = {}
             for epoch in preds:
