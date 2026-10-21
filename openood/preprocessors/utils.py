@@ -36,6 +36,5 @@ def get_preprocessor(config: Config, split):
     if split == 'train':
         return train_preprocessors.get(config.preprocessor.name, 'base')(config)
     if '.' not in split:
-        :
         return test_preprocessors.get(config.preprocessor.name, 'base')(config)
     return PatchPreprocessor(config, split=split)
