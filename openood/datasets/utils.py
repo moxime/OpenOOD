@@ -200,6 +200,7 @@ def get_tta_ood_dataloader(config: Config):
             # dataloaders for nearood, farood
             sub_dataloader_dict = {}
             for dataset_name in split_config.datasets:
+                preprocessor = get_preprocessor(config, split=f'{split}.{dataset_name}')
                 dataset_config = split_config[dataset_name]
                 ood_dataset = CustomDataset(
                     name=ood_config.name + '_' + split,
