@@ -122,12 +122,18 @@ class PatchPreprocessor(TestStandardPreProcessor):
     """For patched dataset for outlier exposure"""
 
     def __init__(self, config: Config, split=None):
+
         super().__init__(config)
+
         if not split:
             return
 
-        dataset_name = split.split('.')[-1]
-        preprocessor_config = config.ood_dataset.padding.get(dataset_name, {}).get('preprocessor', {})
+        if '.' not in split:
+            return
+
+        split, dataset_name = split.split('.')
+        dataset_config = config.ood_dataset[split][dataset_name]
+        preprocessor_config = dataset_config.get('preprocessor', {})
         preprocessor_name = preprocessor_config.get('name', 'base')
         if preprocessor_name == 'base':
             return
@@ -165,7 +171,8 @@ if __name__ == '__main__':
 
     config = Config(str(config_dir / 'cifar10.yml'), str(config_dir / 'cifar10_tta_ood.yml'))
 
-    p = PatchPreprocessor(config, 'padding.lsunr')
-    p = PatchPreprocessor(config, 'padding.patched_id')
+    for split in ('padding.lsunr', 'padding.patched_id'):
 
-    print(p)
+        print('*** {} ***'.format(split))
+        p = PatchPreprocessor(config, split)
+        print(p)

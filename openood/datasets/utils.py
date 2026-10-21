@@ -153,7 +153,6 @@ def get_tta_ood_dataloader(config: Config):
 
     for split in ood_config.split_names:
         split_config = ood_config[split]
-        preprocessor = get_preprocessor(config, split)
         if split == 'val':
             # validation set
             name = ood_config.name + '_' + split
@@ -167,6 +166,7 @@ def get_tta_ood_dataloader(config: Config):
                     suboods[dataset_name] = Subset(padding_set, subset_indices[:len(ind_val_dataset)])
 
                 else:
+                    preprocessor = get_preprocessor(config, split=f'{split}.{dataset_name}')
                     dataset_config = split_config[dataset_name]
                     suboods[dataset_name] = CustomDataset(name=name,
                                                           imglist_pth=dataset_config.imglist_pth,
