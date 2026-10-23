@@ -5,9 +5,9 @@ postprocessor:
     threshold: 0.
   ft:
     epochs: 1000
-    beta: 0.016
+    beta: 1
     unfreeze: all
   postprocessor_args:
     mu_ood: zero
     gasless: True
-    stop_iteration: max_fisher
+    stop_iteration: it_p

@@ -121,7 +121,7 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
     def adaptation_loss(self, logits, features, net):
 
-        return features.square().sum(-1)
+        return features.square().mean(-1)
 
     def losses_weight(self, conf=0., where='id', epoch=0, epochs=0, **kw):
         """ return id_loss_weight, adaptation_loss_weight for sample x
