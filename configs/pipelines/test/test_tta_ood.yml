@@ -44,7 +44,7 @@ postprocessor:
     id: -1.
     ood: 0.5
     self: 1.
-    threshold: nan:float  # put x in pad_self if conf <= threshold, if nan, threshold will be set on setup
+    threshold: .nan  # put x in pad_self if conf <= threshold, if nan, threshold will be set on setup
   ft: # defaults value for ft
     epochs: 0
     lr: 2.0e-3
