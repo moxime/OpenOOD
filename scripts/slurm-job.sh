@@ -64,7 +64,7 @@ case $dataset in
     cifar10)
 
 	if [ -z $network ] ; then
-	    network=resnet20_32x32
+	    network=resnet18_32x32
 	fi
 
 	case $network in

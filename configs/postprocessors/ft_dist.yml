@@ -1,8 +1,6 @@
 postprocessor:
   name: ft_dist
   APS_mode: False
-  padding:
-    threshold: 0.
   ft:
     epochs: 1000
     beta: 1
