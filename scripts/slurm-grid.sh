@@ -29,7 +29,7 @@ do
 	    echo sbatch $slrum_script $@ \
 		 --postprocessor.ft.epochs $epochs \
 		 --postprocessor.ft.beta $beta \
-		 --ood_dataset.padding.datasets $pad_ext
+		 --ood_dataset.padding.datasets $pad
 	done
     done
 done
