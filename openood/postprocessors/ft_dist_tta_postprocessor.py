@@ -47,9 +47,8 @@ class DistTTAPostprocessor(FTTTAPostprocessor):
 
         inference_on_val = inference_on_val_threshold or inference_on_val_iterations
 
-        if inference_on_val:
-            outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
-            preds, confs, labels = outputs
+        outputs = super().setup(net, id_loader_dict, id_ood_loader_dict, inference_on_val=inference_on_val)
+        preds, confs, labels = outputs
 
         stop_epoch = self.switch_phase
 
