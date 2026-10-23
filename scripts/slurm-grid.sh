@@ -8,7 +8,8 @@ while :; do
 
     case $1 in
 
-	--beta )
+	--dry-run )
+	    pre_cmd=echo
 	;;
 	* )
 	    break
@@ -26,10 +27,10 @@ do
     do
 	for pad in ${pad_[@]}
 	do
-	    sbatch $slrum_script $@ \
-		   --postprocessor.ft.epochs $epochs \
-		   --postprocessor.ft.beta $beta \
-		   --ood_dataset.padding.datasets $pad
+	    $pre_cmd sbatch $slrum_script $@ \
+		     --postprocessor.ft.epochs $epochs \
+		     --postprocessor.ft.beta $beta \
+		     --ood_dataset.padding.datasets $pad
 	done
     done
 done
