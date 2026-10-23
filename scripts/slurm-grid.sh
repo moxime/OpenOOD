@@ -27,7 +27,7 @@ do
     do
 	for pad in ${pad_[@]}
 	do
-	    $pre_cmd sbatch $slrum_script $@ \
+	    $pre_cmd sbatch $slurm_script $@ \
 		     --postprocessor.ft.epochs $epochs \
 		     --postprocessor.ft.beta $beta \
 		     --ood_dataset.padding.datasets $pad
