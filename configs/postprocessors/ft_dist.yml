@@ -3,7 +3,7 @@ postprocessor:
   APS_mode: False
   ft:
     epochs: 1000
-    beta: 1
+    beta: 1.
     unfreeze: all
   postprocessor_args:
     mu_ood: zero
